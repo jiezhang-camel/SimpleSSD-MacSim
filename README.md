@@ -1,4 +1,4 @@
-#Macsim
+# Macsim
 #### Simulator for Heterogeneous Architecture
 
 * Please use release tab to get the tagged version of the source code! 
