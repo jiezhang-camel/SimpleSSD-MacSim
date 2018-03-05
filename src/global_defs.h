@@ -96,6 +96,7 @@ class thread_s;
 class throttler_c;
 class fbstream_c;
 class bug_detector_c;
+class progress_checker_c;
 class queue_c;
 class multi_key_map_c;
 class inst_info_s;

@@ -85,6 +85,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "resource.h"
 #include "rob_smc.h"
 #include "uop.h"
+#include "progress_checker.h"
 
 #include "config.h"
 
@@ -343,6 +344,10 @@ void retire_c::run_a_cycle()
 
     // update number of retired uops
     ++m_uops_retired[cur_uop->m_thread_id];
+    
+    // let the progress checker know that there is an activity in the retire
+    // stage, so that macsim would not enter fast-forward mode.
+    m_simBase->m_progress_checker->update_retire_progress_info(m_simBase->m_simulation_cycle);
 
     DEBUG_CORE(m_core_id, "core_id:%d thread_id:%d retired_insts:%lld uop->inst_num:%lld uop_num:%lld done_cycle:%lld\n",
         m_core_id, cur_uop->m_thread_id, m_insts_retired[cur_uop->m_thread_id], cur_uop->m_inst_num, cur_uop->m_uop_num,

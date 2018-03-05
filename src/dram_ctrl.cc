@@ -44,6 +44,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "utils.h"
 #include "bug_detector.h"
 #include "network.h"
+#include "progress_checker.h"
 
 #include "all_knobs.h"
 #include "statistics.h"

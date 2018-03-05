@@ -242,6 +242,9 @@ class macsim_c
 
     // bug detector
 		bug_detector_c *m_bug_detector; /**< bug detector */
+		
+		// progress checker
+		progress_checker_c *m_progress_checker; /**< progress checker */
 
     // process manager
 		process_manager_c* m_process_manager; /**< process manager */
@@ -313,6 +316,8 @@ class macsim_c
     queue<int> m_freq;
 
     int m_pll_lockout; /**< pll time counter to lock on a frequency */
+		
+		bool m_ff_mode; /**< fast-forward mode */
 
 #ifdef USING_SST
 #include "callback.h"

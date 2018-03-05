@@ -56,6 +56,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "dram.h"
 #include "utils.h"
 #include "bug_detector.h"
+#include "progress_checker.h"
 #include "fetch_factory.h"
 #include "pref_factory.h"
 #include "network.h"
@@ -185,6 +186,12 @@ void macsim_c::register_functions(void)
 
   dram_factory_c::get()->register_class("FRFCFS", frfcfs_controller);
   dram_factory_c::get()->register_class("FCFS", fcfs_controller);
+#ifdef RAMULATOR
+  dram_factory_c::get()->register_class("RAMULATOR", ramulator_controller);
+#endif
+#ifdef DRAMSIM
+  dram_factory_c::get()->register_class("DRAMSIM", dramsim_controller);
+#endif
 #ifdef USING_SST
   dram_factory_c::get()->register_class("VAULTSIM", vaultsim_controller);
 #endif
@@ -252,6 +259,9 @@ void macsim_c::init_memory(void)
     printf("enabling bug detector\n");
     m_bug_detector = new bug_detector_c(m_simBase);
   }
+  
+  // progress checker
+  m_progress_checker = new progress_checker_c(m_simBase);
 
   //Dynamic Frequency
   m_dyfr = new dyfr_c(this, m_num_sim_cores);
@@ -588,6 +598,8 @@ void macsim_c::deallocate_memory(void)
 
   if (*m_simBase->m_knobs->KNOB_BUG_DETECTOR_ENABLE)
     delete m_bug_detector;
+    
+  delete m_progress_checker;
 
   // deallocate cores
   int num_large_cores        = *KNOB(KNOB_NUM_SIM_LARGE_CORES);
@@ -894,6 +906,18 @@ int macsim_c::run_a_cycle()
   if (m_simulation_cycle > 10000000 && m_simulation_cycle % dyfr_sample_period == 0) {
     m_dyfr->update();
   }
+  
+  // check if all pipeline stages have nothing to do (except for awaiting DRAM 
+  // responses), then enter fast-forward mode, where we just skip all the
+  // operations (exception: dram controller). 
+  // once a dram response arrives, immediately exit from the fast-forward mode.
+  if (*KNOB(KNOB_ENABLE_FAST_FORWARD_MODE)) {
+    m_ff_mode = m_progress_checker->inspect(m_simulation_cycle);
+    if (m_ff_mode)
+      STAT_EVENT(FF_CYC_COUNT);
+    else
+      STAT_EVENT(NON_FF_CYC_COUNT);
+  }
 
 #ifndef USING_SST
   // interconnection
@@ -902,14 +926,14 @@ int macsim_c::run_a_cycle()
     manifold::kernel::Manifold::Run((double) m_simulation_cycle);       //IRIS
     manifold::kernel::Manifold::Run((double) m_simulation_cycle);       //IRIS for half tick?
 #else
-    m_network->run_a_cycle(pll_locked);
+    m_network->run_a_cycle(pll_locked || m_ff_mode);
 #endif
     GET_NEXT_CYCLE(CLOCK_NOC);
   }
 
   // run memory system
   if (m_clock_internal == m_domain_next[CLOCK_L3]) {
-    m_memory->run_a_cycle(pll_locked);
+    m_memory->run_a_cycle(pll_locked || m_ff_mode);
     GET_NEXT_CYCLE(CLOCK_L3);
   }
   
@@ -961,10 +985,10 @@ int macsim_c::run_a_cycle()
       // run a cycle
 
 #ifndef USING_SST
-      m_memory->run_a_cycle_core(ii, pll_locked);
+      m_memory->run_a_cycle_core(ii, pll_locked || m_ff_mode);
 #endif
 
-      core->run_a_cycle(pll_locked);
+      core->run_a_cycle(pll_locked || m_ff_mode);
 
       m_num_running_core++;
       STAT_CORE_EVENT(ii, CYC_COUNT);

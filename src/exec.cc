@@ -63,6 +63,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "rob_smc.h"
 #include "sw_managed_cache.h"
 #include "process_manager.h"
+#include "progress_checker.h"
 
 #include "debug_macros.h"
 
@@ -567,6 +568,10 @@ bool exec_c::exec(int thread_id, int entry, uop_c* uop)
   // set scheduling cycle
   uop->m_sched_cycle = m_cur_core_cycle;
 
+  // let the progress checker know that there is an activity in the schedule
+  // stage, so that macsim would not enter fast-forward mode.
+  m_simBase->m_progress_checker->update_schedule_progress_info(m_simBase->m_simulation_cycle);
+  
   ASSERTM(uop_latency != 0, "type=%d uop_type:%d\n", type, uop_type);
 
   // set uop done cycle

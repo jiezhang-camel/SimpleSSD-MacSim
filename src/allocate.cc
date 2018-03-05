@@ -55,6 +55,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "utils.h"
 #include "statistics.h"
 #include "bp.h"
+#include "progress_checker.h"
 
 #include "debug_macros.h"
 #include "all_knobs.h"
@@ -172,6 +173,9 @@ void allocate_c::run_a_cycle(void)
     // no stall allocate resources 
     uop->m_alloc_cycle = m_simBase->m_core_cycle[m_core_id];
 
+    // let the progress checker know that there is an activity in the allocate
+    // stage, so that macsim would not enter fast-forward mode.
+    m_simBase->m_progress_checker->update_allocate_progress_info(m_simBase->m_simulation_cycle);
 
     // allocate physical resources
     if (req_sb) {

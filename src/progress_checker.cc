@@ -28,81 +28,52 @@ POSSIBILITY OF SUCH DAMAGE.
 
 
 /**********************************************************************************************
- * File         : dram.h 
- * Author       : HPArch Research Group
- * Date         : 2/18/2013
- * SVN          : $Id: dram.h 867 2009-11-05 02:28:12Z kacear $:
- * Description  : Memory controller
+ * File         : progress_checker.h
+ * Author       : Hyojong Kim
+ * Date         : 2/5/2018
+ * Description  : Progress Checker
  *********************************************************************************************/
 
+#include "progress_checker.h"
+#include "all_knobs.h"
 
-#ifndef DRAM_H
-#define DRAM_H
-
-
-#include "macsim.h"
-
-
-///////////////////////////////////////////////////////////////////////////////////////////////
-/// \brief Memory controller base class
-///////////////////////////////////////////////////////////////////////////////////////////////
-class dram_c
+progress_checker_c::progress_checker_c(macsim_c* simBase) : m_simBase(simBase) 
 {
-  public:
-    /**
-     * Constructor
-     */
-    dram_c(macsim_c* simBase);
+  m_threshold = *KNOB(KNOB_FAST_FORWARD_MODE_THRESHOLD);
 
-    /**
-     * Destructor
-     */
-    virtual ~dram_c() = 0;
+  m_frontend_stage_last_active_cycle = 0;
+  m_allocate_stage_last_active_cycle = 0;
+  m_schedule_stage_last_active_cycle = 0;
+  m_retire_stage_last_active_cycle = 0;
+  m_dram_last_active_cycle = 0;
 
-    /**
-     * Print all requests in the DRAM request buffer
-     */
-    virtual void print_req(void) = 0; 
+  m_fast_forward_mode = false;
+}
 
-    /**
-     * Initialize MC
-     */
-    virtual void init(int id) = 0; 
+progress_checker_c::~progress_checker_c()
+{
+}
 
-    /**
-     * Tick a cycle
-     */
-    virtual void run_a_cycle(bool) = 0;
+bool progress_checker_c::inspect(Counter curr_cycle)
+{
+  if (m_fast_forward_mode) {
+    if (m_dram_last_active_cycle + 5 > curr_cycle) {
+      m_fast_forward_mode = false;
 
-  protected:
-    /**
-     * Send a packet to NOC
-     */
-    virtual void send(void) = 0;
+      m_frontend_stage_last_active_cycle = curr_cycle;
+      m_allocate_stage_last_active_cycle = curr_cycle;
+      m_schedule_stage_last_active_cycle = curr_cycle;
+      m_retire_stage_last_active_cycle = curr_cycle;
+    }
+  } else {
+    if ((m_frontend_stage_last_active_cycle + m_threshold < curr_cycle) &&
+        (m_allocate_stage_last_active_cycle + m_threshold < curr_cycle) &&
+        (m_schedule_stage_last_active_cycle + m_threshold < curr_cycle) &&
+        (m_retire_stage_last_active_cycle + m_threshold < curr_cycle))
+      m_fast_forward_mode = true;
+    else
+      m_fast_forward_mode = false;
+  }
 
-    /**
-     * Receive a packet from NOC
-     */
-    virtual void receive(void) = 0;
-
-  private:
-    dram_c(); // do not implement
-
-  protected:
-    macsim_c* m_simBase; /**< simulation base class */
-    Counter m_cycle; /**< dram clock cycle */
-    int m_id; /**< MC id */
-};
-
-
-// wrapper function to allocate a dram scheduler
-dram_c* fcfs_controller(macsim_c* simBase);
-dram_c* frfcfs_controller(macsim_c* simBase);
-dram_c* dramsim_controller(macsim_c* simBase);
-dram_c* ramulator_controller(macsim_c* simBase);
-#ifdef USING_SST
-dram_c* vaultsim_controller(macsim_c* simBase);
-#endif
-
-
-#endif
+  return m_fast_forward_mode;
+}

@@ -56,6 +56,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "bug_detector.h"
 #include "config.h"
 #include "process_manager.h"
+#include "progress_checker.h"
 #include "all_knobs.h"
 
 
@@ -477,6 +478,10 @@ FRONTEND_MODE frontend_c::process_ifetch(unsigned int tid, frontend_s* fetch_dat
 	          m_simBase->m_bug_detector->allocate(new_uop->m_child_uops[ii]);
 	        }
 				}
+        
+        // let the progress checker know that there is an activity in the frontend
+        // stage, so that macsim would not enter fast-forward mode.
+        m_simBase->m_progress_checker->update_frontend_progress_info(m_simBase->m_simulation_cycle);
 
         ++m_core->m_ops_to_be_dispatched[tid];
         m_core->m_last_fetch_cycle[tid] = m_core->get_cycle_count();
