@@ -7,6 +7,7 @@
 #include "bug_detector.h"
 #include "network.h"
 
+#include "all_knobs.h"
 #include "statistics.h"
 
 #include "simplessd_interface.h"
@@ -24,7 +25,7 @@ dram_c* simplessd_interface(macsim_c* simBase)
 simplessd_interface_c::simplessd_interface_c(macsim_c* simBase)
 	: dram_c(simBase)
 {
-  configReader->init((string)*m_simBase->m_knobs->KNOB_SIMPLESSD_CONFIG);
+  configReader.init((string)*m_simBase->m_knobs->KNOB_SIMPLESSD_CONFIG);
 	clock_freq = *m_simBase->m_knobs->KNOB_CLOCK_MC;
 
   pHIL = new SimpleSSD::HIL::HIL(&configReader);
@@ -120,15 +121,16 @@ bool simplessd_interface_c::insert_new_req(mem_req_s* mem_req)
   request.range.slpn = mem_req->m_addr / logicalPageSize;
   request.range.nlp = (mem_req->m_size + request.offset + logicalPageSize - 1) / logicalPageSize;
 
-  Tick finishTick = static_cast<unsigned long long>(m_cycle*1000/clock_freq);
+  uint64_t finishTick = static_cast<unsigned long long>(m_cycle*1000/clock_freq);
 
   if (mem_req->m_dirty)
-    pHIL->write(req, finishTick);
-  else:
-    pHIL->read(req, finishTick);
+    pHIL->write(request, finishTick);
+  else
+    pHIL->read(request, finishTick);
 
-  m_output_buffer->insert(pair<unsigned long long, mem_req_s*>(\
-        static_cast<unsigned long long>(curTick*clock_freq/1000), mem_req));
+  m_output_buffer->insert(
+    pair<unsigned long long, mem_req_s*>(
+      static_cast<unsigned long long>(finishTick), mem_req));
 
 	return true;
 }

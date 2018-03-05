@@ -315,12 +315,16 @@ simplessd_src = [
     'src/simplessd/util/config.cc',
     'src/simplessd/util/def.cc',
     'src/simplessd/util/disk.cc',
-    'src/simplessd_interface.cc',
+    'src/simplessd_interface.cc'
+]
+
+simplessd_src_c = [
     'src/simplessd/lib/ini/ini.c'
 ]
 
 if flags['simplessd'] == '1':
   env.Library('simplessd', simplessd_src)
+  env.Library('simplessd_c', simplessd_src_c, CPPFLAGS='-std=c99')
 
 #########################################################################################
 # Libraries
@@ -353,8 +357,9 @@ if flags['ramulator'] == '1':
 
 if flags['simplessd'] == '1':
   libraries.append('simplessd')
+  libraries.append('simplessd_c')
   env['CPPDEFINES'].append('SIMPLESSD')
-  env['CPPPATH'] += ['#src/SimpleSSD']
+  env['CPPPATH'] += ['#src/simplessd']
   env['LIBPATH'] += [Dir('.')]
 
 env.Program(

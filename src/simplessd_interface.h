@@ -33,7 +33,7 @@ class simplessd_interface_c : public dram_c
     SimpleSSD::ConfigReader configReader;
     SimpleSSD::HIL::HIL *pHIL;
     uint64_t totalLogicalPages;
-    uint64_t logicalPageSize;
+    uint32_t logicalPageSize;
 
     float clock_freq;
     map<unsigned long long, mem_req_s*> *m_output_buffer;

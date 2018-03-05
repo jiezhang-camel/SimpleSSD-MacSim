@@ -66,6 +66,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include <iostream>
 #include <iomanip>
 
+#include "statsEnums.h"
 #include "global_defs.h"
 
 using namespace std;
