@@ -96,6 +96,7 @@ void dram_ramulator_c::readComplete(ramulator::Request &ramu_req) {
 
   // added counter to track requests in flight
   --requestsInFlight;
+  m_simBase->m_progress_checker->decrement_outstanding_requests();
 
   DEBUG("Queuing response for address 0x%lx\n", ramu_req.addr);
   resp_queue.push_back(req);
@@ -111,6 +112,7 @@ void dram_ramulator_c::writeComplete(ramulator::Request &ramu_req) {
 
   // added counter to track requests in flight
   --requestsInFlight;
+  m_simBase->m_progress_checker->decrement_outstanding_requests();
 
   // in case of WB, retire requests here
   DEBUG("Retiring request for address 0x%lx\n", ramu_req.addr);
@@ -156,6 +158,7 @@ void dram_ramulator_c::receive(void) {
 
       // added counter to track requests in flight
       ++requestsInFlight;
+      m_simBase->m_progress_checker->increment_outstanding_requests();
 
       NETWORK->receive_pop(MEM_MC, m_id);
       if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {

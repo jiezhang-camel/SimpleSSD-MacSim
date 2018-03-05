@@ -47,6 +47,8 @@ progress_checker_c::progress_checker_c(macsim_c* simBase) : m_simBase(simBase)
   m_retire_stage_last_active_cycle = 0;
   m_dram_last_active_cycle = 0;
 
+  m_outstanding_requests = 0;
+
   m_fast_forward_mode = false;
 }
 
@@ -56,23 +58,24 @@ progress_checker_c::~progress_checker_c()
 
 bool progress_checker_c::inspect(Counter curr_cycle)
 {
-  if (m_fast_forward_mode) {
-    if (m_dram_last_active_cycle + 5 > curr_cycle) {
-      m_fast_forward_mode = false;
+  if (m_dram_last_active_cycle + 5 > curr_cycle) {
+    m_fast_forward_mode = false;
 
-      m_frontend_stage_last_active_cycle = curr_cycle;
-      m_allocate_stage_last_active_cycle = curr_cycle;
-      m_schedule_stage_last_active_cycle = curr_cycle;
-      m_retire_stage_last_active_cycle = curr_cycle;
-    }
-  } else {
+    m_frontend_stage_last_active_cycle = curr_cycle;
+    m_allocate_stage_last_active_cycle = curr_cycle;
+    m_schedule_stage_last_active_cycle = curr_cycle;
+    m_retire_stage_last_active_cycle = curr_cycle;
+  }
+
+  if (m_outstanding_requests == 0)
+    return false;
+
+  if (!m_fast_forward_mode) {
     if ((m_frontend_stage_last_active_cycle + m_threshold < curr_cycle) &&
         (m_allocate_stage_last_active_cycle + m_threshold < curr_cycle) &&
         (m_schedule_stage_last_active_cycle + m_threshold < curr_cycle) &&
         (m_retire_stage_last_active_cycle + m_threshold < curr_cycle))
       m_fast_forward_mode = true;
-    else
-      m_fast_forward_mode = false;
   }
 
   return m_fast_forward_mode;

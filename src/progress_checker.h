@@ -69,7 +69,15 @@ class progress_checker_c
     void update_dram_progress_info(Counter cycle) { 
       m_dram_last_active_cycle = cycle; 
     }
-  
+
+    void increment_outstanding_requests() {
+      ++m_outstanding_requests;
+    }
+
+    void decrement_outstanding_requests() {
+      --m_outstanding_requests;
+    }
+
   private:
     Counter m_threshold;
 
@@ -78,6 +86,8 @@ class progress_checker_c
     Counter m_schedule_stage_last_active_cycle;
     Counter m_retire_stage_last_active_cycle;
     Counter m_dram_last_active_cycle;
+
+    Counter m_outstanding_requests;
 
     bool m_fast_forward_mode;
     
