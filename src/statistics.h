@@ -1,28 +1,28 @@
 /*
 Copyright (c) <2012>, <Georgia Institute of Technology> All rights reserved.
 
-Redistribution and use in source and binary forms, with or without modification, are permitted 
+Redistribution and use in source and binary forms, with or without modification, are permitted
 provided that the following conditions are met:
 
-Redistributions of source code must retain the above copyright notice, this list of conditions 
+Redistributions of source code must retain the above copyright notice, this list of conditions
 and the following disclaimer.
 
-Redistributions in binary form must reproduce the above copyright notice, this list of 
-conditions and the following disclaimer in the documentation and/or other materials provided 
+Redistributions in binary form must reproduce the above copyright notice, this list of
+conditions and the following disclaimer in the documentation and/or other materials provided
 with the distribution.
 
-Neither the name of the <Georgia Institue of Technology> nor the names of its contributors 
-may be used to endorse or promote products derived from this software without specific prior 
+Neither the name of the <Georgia Institue of Technology> nor the names of its contributors
+may be used to endorse or promote products derived from this software without specific prior
 written permission.
 
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR 
-IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY 
-AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR 
-CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR 
-CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR 
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY 
-THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR 
-OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE 
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR
+IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
+AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 */
 
@@ -30,7 +30,7 @@ POSSIBILITY OF SUCH DAMAGE.
 /**********************************************************************************************
  * File         : statistics.h
  * Author       : Abderrahim Benquassmi
- * Date         : 3/11/2008 
+ * Date         : 3/11/2008
  * CVS          : $Id: knob.h 868 2009-11-05 06:28:01Z kacear $:
  * Description  : stats framework
  *********************************************************************************************/
@@ -66,7 +66,6 @@ POSSIBILITY OF SUCH DAMAGE.
 #include <iostream>
 #include <iomanip>
 
-#include "statsEnums.h"
 #include "global_defs.h"
 
 using namespace std;
@@ -108,7 +107,7 @@ class AbstractStat
     /**
      * Constructor.
      */
-    AbstractStat(const string& str, const string& outputfilename, long ID, 
+    AbstractStat(const string& str, const string& outputfilename, long ID,
         bool corewide = false, bool isTemplate = true):
       m_pRatioStat(NULL), m_count(0), m_total_count(0), m_ID(ID),
       m_coreID(0), m_name(str), m_fileName(outputfilename), m_suffix(""),
@@ -221,7 +220,7 @@ class AbstractStat
       stream << setw(FILED1_LENGTH) << name;
 
       stream.setf ( ios::right, ios::adjustfield );
-      stream << setw(FILED2_LENGTH) << m_count << setw(FILED3_LENGTH) << m_count << 
+      stream << setw(FILED2_LENGTH) << m_count << setw(FILED3_LENGTH) << m_count <<
         endl << endl;
     }
 
@@ -318,7 +317,7 @@ class DISTMember_Stat : public AbstractStat
      */
     virtual AbstractStat* clone(unsigned int coreID)
     {
-      DISTMember_Stat* pStat = new DISTMember_Stat(m_name, m_fileName, m_ID, true, 
+      DISTMember_Stat* pStat = new DISTMember_Stat(m_name, m_fileName, m_ID, true,
           m_isTemplate);
       pStat->m_isTemplate = false;
       pStat->setCoreID(coreID);
@@ -341,7 +340,7 @@ class DIST_Stat : public AbstractStat
      * Constructor.
      */
     DIST_Stat(const string& str, const string& outputfilename, long ID, ProcessorStatistics* procStat):
-      AbstractStat(str, outputfilename, ID) 
+      AbstractStat(str, outputfilename, ID)
     {
       m_ProcStat = procStat;
     }
@@ -445,10 +444,10 @@ class PER_INST_Stat : public AbstractStat
       stream.setf ( ios::left, ios::adjustfield );
       stream << setw(FILED1_LENGTH) << name;
       stream.setf ( ios::right, ios::adjustfield );
-      stream << setw(FILED2_LENGTH) << m_count << setw(FILED3_LENGTH) 
+      stream << setw(FILED2_LENGTH) << m_count << setw(FILED3_LENGTH)
         << per_inst_value << endl << endl;
     }
-  
+
   private:
     float per_inst_value; /**< stat value */
 };
@@ -499,7 +498,7 @@ class PER_CYCLE_Stat : public AbstractStat
         stream.setf ( ios::left, ios::adjustfield );
         stream << setw(FILED1_LENGTH) << name;
         stream.setf ( ios::right, ios::adjustfield );
-        stream << setw(FILED2_LENGTH) << m_count << setw(FILED3_LENGTH) 
+        stream << setw(FILED2_LENGTH) << m_count << setw(FILED3_LENGTH)
           << per_cycle << endl << endl;
       }
     }
@@ -614,9 +613,9 @@ class PERCENT_Stat : public AbstractStat
     /**
      * Constructor.
      */
-    PERCENT_Stat(const string& str, const string& outputfilename, long ID, 
+    PERCENT_Stat(const string& str, const string& outputfilename, long ID,
                  long denominatorID, ProcessorStatistics* procStat):
-      AbstractStat(str, outputfilename, ID), m_denominatorID(denominatorID) 
+      AbstractStat(str, outputfilename, ID), m_denominatorID(denominatorID)
     {
       m_ProcStat = procStat;
     }
@@ -972,7 +971,7 @@ class CoreStatistics
 
       vector<AbstractStat*>::iterator iter = m_CoreStats.begin();
       vector<AbstractStat*>::iterator end = m_CoreStats.end();
-      
+
       while (iter != end) {
         AbstractStat* pStat = (*iter);
         AbstractStat* pStatClone = pStat->clone(cloneCoreID);
@@ -1034,7 +1033,7 @@ class CoreStatistics
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
 /// \brief Processor stats
-/// 
+///
 /// This class has two types of stats; global and core stats
 ///////////////////////////////////////////////////////////////////////////////////////////////
 class ProcessorStatistics
