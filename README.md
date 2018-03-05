@@ -1,4 +1,4 @@
-#Macsim [![Build Status](https://travis-ci.org/gthparch/macsim.svg?branch=master)](https://travis-ci.org/gthparch/macsim)
+#Macsim
 #### Simulator for Heterogeneous Architecture
 
 * Please use release tab to get the tagged version of the source code! 
