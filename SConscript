@@ -285,18 +285,15 @@ macsim_src = [
 # SimpleSSD
 #########################################################################################
 simplessd_src = [
+    'src/simplessd/dram/config.cc',
+    'src/simplessd/dram/simple.cc',
     'src/simplessd/ftl/config.cc',
     'src/simplessd/ftl/ftl.cc',
     'src/simplessd/ftl/page_mapping.cc',
     'src/simplessd/ftl/common/block.cc',
-    'src/simplessd/hil/hil.cc',
+    'src/simplessd/ftl/common/latency.cc',
     'src/simplessd/hil/nvme/config.cc',
-    'src/simplessd/hil/nvme/controller.cc',
-    'src/simplessd/hil/nvme/def.cc',
-    'src/simplessd/hil/nvme/dma.cc',
-    'src/simplessd/hil/nvme/namespace.cc',
-    'src/simplessd/hil/nvme/queue.cc',
-    'src/simplessd/hil/nvme/subsystem.cc',
+    'src/simplessd/hil/hil.cc',
     'src/simplessd/icl/abstract_cache.cc',
     'src/simplessd/icl/config.cc',
     'src/simplessd/icl/generic_cache.cc',
