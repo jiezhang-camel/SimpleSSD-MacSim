@@ -1,11 +1,13 @@
 # Simulation Configuration
-num_sim_cores 16
-num_sim_small_cores 16
+num_sim_cores 20
+num_sim_small_cores 20
 core_type ptx
-max_threads_per_core 80
+max_threads_per_core 128
 num_sim_medium_cores 0
 num_sim_large_cores 0
 
+# SimpleSSD Configuration
+simplessd_config ../src/SimpleSSD/config/intel750_400gb.cfg
 
 # Clock
 # from device query for gtx580  - gpu clock - 1.66 GHz, mem clock - 2100 MHz
@@ -61,8 +63,8 @@ l1_small_assoc 6
 #l1_small_assoc 4
 
 # L3 Cache
-num_l3 6
-l3_num_set 128
+num_l3 8
+l3_num_set 256
 l3_line_size 128
 l3_assoc 8
 l3_num_bank 4
@@ -70,7 +72,7 @@ l3_latency 10
 
 
 # DRAM
-dram_num_mc 6
+dram_num_mc 1
 dram_bus_width 8
 dram_column 11
 dram_activate 25
@@ -78,7 +80,7 @@ dram_precharge 10
 dram_num_banks 16
 dram_num_channel 1
 dram_rowbuffer_size 2048
-dram_scheduling_policy FRFCFS
+dram_scheduling_policy SIMPLESSD
 
 
 
@@ -93,7 +95,7 @@ bug_detector_enable 1
 sim_cycle_count 0
 max_insts 200000000
 heartbeat_interval 1000000
-forward_progress_limit 50000
+forward_progress_limit 5000000000000
 blocks_to_simulate 0
 ptx_exec_ratio 2
 num_warp_scheduler 2

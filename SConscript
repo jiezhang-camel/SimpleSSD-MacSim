@@ -281,6 +281,46 @@ macsim_src = [
 ]
 
 
+#########################################################################################
+# SimpleSSD
+#########################################################################################
+simplessd_src = [
+    'src/simplessd/ftl/config.cc',
+    'src/simplessd/ftl/ftl.cc',
+    'src/simplessd/ftl/page_mapping.cc',
+    'src/simplessd/ftl/common/block.cc',
+    'src/simplessd/hil/hil.cc',
+    'src/simplessd/hil/nvme/config.cc',
+    'src/simplessd/hil/nvme/controller.cc',
+    'src/simplessd/hil/nvme/def.cc',
+    'src/simplessd/hil/nvme/dma.cc',
+    'src/simplessd/hil/nvme/namespace.cc',
+    'src/simplessd/hil/nvme/queue.cc',
+    'src/simplessd/hil/nvme/subsystem.cc',
+    'src/simplessd/icl/abstract_cache.cc',
+    'src/simplessd/icl/config.cc',
+    'src/simplessd/icl/generic_cache.cc',
+    'src/simplessd/icl/icl.cc',
+    'src/simplessd/log/log.cc',
+    'src/simplessd/pal/config.cc',
+    'src/simplessd/pal/pal.cc',
+    'src/simplessd/pal/pal_old.cc',
+    'src/simplessd/pal/old/Latency.cc',
+    'src/simplessd/pal/old/LatencyMLC.cc',
+    'src/simplessd/pal/old/LatencySLC.cc',
+    'src/simplessd/pal/old/LatencyTLC.cc',
+    'src/simplessd/pal/old/PAL2.cc',
+    'src/simplessd/pal/old/PAL2_TimeSlot.cc',
+    'src/simplessd/pal/old/PALStatistics.cc',
+    'src/simplessd/util/config.cc',
+    'src/simplessd/util/def.cc',
+    'src/simplessd/util/disk.cc',
+    'src/simplessd_interface.cc',
+    'src/simplessd/lib/ini/ini.c'
+]
+
+if flags['simplessd'] == '1':
+  env.Library('simplessd', simplessd_src)
 
 #########################################################################################
 # Libraries
@@ -311,16 +351,20 @@ if flags['qsim'] == '1':
 if flags['ramulator'] == '1':
   libraries.append('ramulator')
 
+if flags['simplessd'] == '1':
+  libraries.append('simplessd')
+  env['CPPDEFINES'].append('SIMPLESSD')
+  env['CPPPATH'] += ['#src/SimpleSSD']
+  env['LIBPATH'] += [Dir('.')]
+
 env.Program(
     'macsim',
-    macsim_src, 
-    LIBS=libraries, 
+    macsim_src,
+    LIBS=libraries,
 )
-
 
 #########################################################################################
 # Clean
 #########################################################################################
 if GetOption('clean'):
   os.system('rm -f ../bin/macsim')
-

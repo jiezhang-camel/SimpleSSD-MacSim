@@ -192,6 +192,9 @@ void macsim_c::register_functions(void)
 #ifdef DRAMSIM
   dram_factory_c::get()->register_class("DRAMSIM", dramsim_controller);
 #endif
+#ifdef SIMPLESSD
+  dram_factory_c::get()->register_class("SIMPLESSD", simplessd_interface);
+#endif
 #ifdef USING_SST
   dram_factory_c::get()->register_class("VAULTSIM", vaultsim_controller);
 #endif

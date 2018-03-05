@@ -118,7 +118,8 @@ param<L3_LATENCY,   l3_latency,   int, 25>
 
 param<DCACHE_INFINITE_PORT, dcache_infinite_port, bool, false>
 
-
+/* SimpleSSD */
+param<SIMPLESSD_CONFIG, simplessd_config, string, src/SimpleSSD/config/intel750_400gb.cfg>
 
 /* DRAM */
 param<DRAM_BUFFER_SIZE, dram_buffer_size, int, 128>

@@ -71,6 +71,7 @@ flags['power'] = Config.get('Library', 'power', '0')
 flags['iris']  = Config.get('Library', 'iris', '0')
 flags['qsim']  = Config.get('Library', 'qsim', '0')
 flags['ramulator']  = Config.get('Library', 'ramulator', '0')
+flags['simplessd'] = Config.get('Library', 'simplessd', '1')
 flags['debug'] = Config.get('Build', 'debug', '0')
 flags['gprof'] = Config.get('Build', 'gprof', '0')
 flags['val']   = Config.get('Build_Extra', 'val', '0')
@@ -82,6 +83,7 @@ flags['gprof'] = ARGUMENTS.get('gprof', flags['gprof'])
 flags['power'] = ARGUMENTS.get('power', flags['power'])
 flags['iris']  = ARGUMENTS.get('iris', flags['iris'])
 flags['dram']  = ARGUMENTS.get('dram', flags['dram'])
+flags['simplessd'] = ARGUMENTS.get('simplessd', flags['simplessd'])
 flags['val']   = ARGUMENTS.get('val', flags['val'])
 flags['qsim']  = ARGUMENTS.get('qsim', flags['qsim'])
 flags['ramulator']  = ARGUMENTS.get('ramulator', flags['ramulator'])
@@ -91,6 +93,10 @@ flags['ramulator']  = ARGUMENTS.get('ramulator', flags['ramulator'])
 if flags['dram'] == '1':
   if not os.path.exists('src/DRAMSim2'):
     os.system('git clone git://github.com/dramninjasUMD/DRAMSim2.git src/DRAMSim2')
+
+if flags['simplessd'] == '1':
+  if not os.path.exists('src/simplessd'):
+    print('Error: Your simulator has not SimpleSSD code. Exit now...')
 
 ## Checkout Ramulator copy
 if flags['ramulator'] == '1':
