@@ -7,7 +7,7 @@ num_sim_medium_cores 0
 num_sim_large_cores 0
 
 # SimpleSSD Configuration
-simplessd_config ../src/SimpleSSD/config/intel750_400gb.cfg
+simplessd_config ../src/simplessd/config/intel750_400gb.cfg
 
 # Clock
 # from device query for gtx580  - gpu clock - 1.66 GHz, mem clock - 2100 MHz
