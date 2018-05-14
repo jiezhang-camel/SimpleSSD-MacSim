@@ -323,7 +323,7 @@ all_knobs_c::all_knobs_c() {
 	KNOB_L3_NUM_BANK = new KnobTemplate< int > ("l3_num_bank", 16);
 	KNOB_L3_LATENCY = new KnobTemplate< int > ("l3_latency", 25);
 	KNOB_DCACHE_INFINITE_PORT = new KnobTemplate< bool > ("dcache_infinite_port", false);
-	KNOB_SIMPLESSD_CONFIG = new KnobTemplate< string > ("simplessd_config", "src/SimpleSSD/config/intel750_400gb.cfg");
+	KNOB_SIMPLESSD_CONFIG = new KnobTemplate< string > ("simplessd_config", "src/simplessd/config/intel750_400gb.cfg");
 	KNOB_DRAM_BUFFER_SIZE = new KnobTemplate< int > ("dram_buffer_size", 128);
 	KNOB_DRAM_BANK_XOR_INDEX = new KnobTemplate< bool > ("dram_bank_xor_index", true);
 	KNOB_DRAM_MERGE_REQUESTS = new KnobTemplate< bool > ("dram_merge_requests", true);
