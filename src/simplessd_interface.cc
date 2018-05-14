@@ -129,14 +129,19 @@ bool simplessd_interface_c::insert_new_req(mem_req_s* mem_req)
 
   uint64_t finishTick = static_cast<unsigned long long>(m_cycle*1000/clock_freq);
 
+  SimpleSSD::Logger::info("Request arrived at %d cycle (%" PRIu64 " ps)", m_cycle, finishTick);
+
   if (mem_req->m_dirty)
     pHIL->write(request, finishTick);
   else
     pHIL->read(request, finishTick);
 
+  finishTick = finishTick / 1000 * clock_freq;
+  SimpleSSD::Logger::info("Request finished at %d cycle", finishTick);
+
   m_output_buffer->insert(
     pair<unsigned long long, mem_req_s*>(
-      static_cast<unsigned long long>(finishTick / 1000 * clock_freq), mem_req));
+      static_cast<unsigned long long>(finishTick), mem_req));
 
 	return true;
 }
