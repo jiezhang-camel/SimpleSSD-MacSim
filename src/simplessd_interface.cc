@@ -15,7 +15,7 @@
 
 #include "simplessd/log/log.hh"
 
-#define DEBUG(args...) _DEBUG(*m_simBase->m_knobs->KNOB_DEBUG_SSD, ## args)
+#define DEBUG(args...) _DEBUG(*m_simBase->m_knobs->KNOB_DEBUG_DRAM, ## args)
 
 dram_c* simplessd_interface(macsim_c* simBase)
 {
@@ -31,7 +31,12 @@ simplessd_interface_c::simplessd_interface_c(macsim_c* simBase)
                                      return m_cycle*1000/clock_freq;
                                    });
 
-  configReader.init((string)*m_simBase->m_knobs->KNOB_SIMPLESSD_CONFIG);
+  if (!configReader.init((string)*m_simBase->m_knobs->KNOB_SIMPLESSD_CONFIG)) {
+    printf("Failed to read SimpleSSD configuration file!\n");
+
+    terminate();
+  }
+
 	clock_freq = *m_simBase->m_knobs->KNOB_CLOCK_MC;
 
   pHIL = new SimpleSSD::HIL::HIL(&configReader);
