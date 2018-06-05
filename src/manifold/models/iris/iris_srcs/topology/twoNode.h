@@ -5,8 +5,8 @@
  *
  *    Description: The class defines functions for a generic k-ary 2D twoNode
  *    with the network being a direct network of size n=k^2.
- *    The links have the following naming convention 
- *    
+ *    The links have the following naming convention
+ *
  *    links going left to right are a links
  *    links going from right to left are b links
  *    links going downwards are a links
@@ -24,10 +24,10 @@
  *              <---  |^ <---  |^   <---
  *              blinks
  *                    ||       ||
- *                    v|       v| 
+ *                    v|       v|
  *              ----> R2 ----> R3 ---->
- *                  a  |^  b     
- *                     ||   
+ *                  a  |^  b
+ *                     ||
  *                  l  ||  l
  *                  i  V|  i
  *                  n      n
@@ -39,46 +39,43 @@
  *       Revision:  none
  *       Compiler:  gcc
  *
- *         Author:  Mitchelle Rasquinha  
+ *         Author:  Mitchelle Rasquinha
  *        Company:  Georgia Institute of Technology
  *
  * =====================================================================================
  */
 
-#ifndef  _twoNode_h_INC
-#define  _twoNode_h_INC
+#ifndef _twoNode_h_INC
+#define _twoNode_h_INC
 
-#include 	"../interfaces/topology.h"
+#include "../interfaces/topology.h"
 
+class TwoNode : public Topology {
+ public:
+  TwoNode();
+  ~TwoNode();
 
-class TwoNode : public Topology
-{
-    public:
-        TwoNode ();
-        ~TwoNode ();
+  void parse_config(std::map<std::string, std::string> &p);
 
-        void parse_config(std::map<std::string,std::string>& p);
-        
-        void connect_interface_terminal(void);
-        void connect_interface_routers(void);
-        void connect_routers(void);
-        void assign_node_ids(component_type t);
+  void connect_interface_terminal(void);
+  void connect_interface_routers(void);
+  void connect_routers(void);
+  void assign_node_ids(component_type t);
 
-        std::string print_stats(void);
-        void set_router_outports( uint n);
+  std::string print_stats(void);
+  void set_router_outports(uint n);
 
-    protected:
-
-    private:
-        uint ports;
-        uint vcs;
-        uint credits;
-        uint buffer_size;
-        uint no_nodes;
-        uint links;
-        uint grid_size;
-        uint no_terminals;
+ protected:
+ private:
+  uint ports;
+  uint vcs;
+  uint credits;
+  uint buffer_size;
+  uint no_nodes;
+  uint links;
+  uint grid_size;
+  uint no_terminals;
 
 }; /* -----  end of class TwoNode  ----- */
 
-#endif   /* ----- #ifndef _twoNode_h_INC  ----- */
+#endif /* ----- #ifndef _twoNode_h_INC  ----- */

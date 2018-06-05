@@ -17,46 +17,43 @@
  * =====================================================================================
  */
 
-#ifndef  _genericbuffer_h_INC
-#define  _genericbuffer_h_INC
+#ifndef _genericbuffer_h_INC
+#define _genericbuffer_h_INC
 
-#include	"../data_types/flit.h"
-#include        "../../interfaces/genericHeader.h"
-#include	<deque>
-#include	<vector>
-#include	<assert.h>
+#include <assert.h>
+#include <deque>
+#include <vector>
+#include "../../interfaces/genericHeader.h"
+#include "../data_types/flit.h"
 
-class GenericBuffer
-{
-    public:
-        GenericBuffer ();                             /* constructor */
-        ~GenericBuffer ();                             /* desstructor */
-        void push( Flit* f );
-        Flit* pull();
-        Flit* peek();
-        uint get_occupancy( uint ch ) const;
-        void resize ( uint vcs, uint buffer_size );
-        void change_pull_channel( uint ch );
-        void change_push_channel( uint ch );
-        uint get_pull_channel() const;
-        uint get_push_channel() const;
-        bool is_channel_full( uint ch ) const;
-        bool is_empty( uint ch ) const;
+class GenericBuffer {
+ public:
+  GenericBuffer();  /* constructor */
+  ~GenericBuffer(); /* desstructor */
+  void push(Flit *f);
+  Flit *pull();
+  Flit *peek();
+  uint get_occupancy(uint ch) const;
+  void resize(uint vcs, uint buffer_size);
+  void change_pull_channel(uint ch);
+  void change_push_channel(uint ch);
+  uint get_pull_channel() const;
+  uint get_push_channel() const;
+  bool is_channel_full(uint ch) const;
+  bool is_empty(uint ch) const;
 
-        std::string toString() const;
+  std::string toString() const;
 
-        std::vector < std::deque<Flit*> > buffers;
-        std::vector < int > next_port;
+  std::vector<std::deque<Flit *> > buffers;
+  std::vector<int> next_port;
 
-    protected:
-
-    private:
-        uint vcs;
-        uint buffer_size;
-        uint pull_channel;
-        uint push_channel;
+ protected:
+ private:
+  uint vcs;
+  uint buffer_size;
+  uint pull_channel;
+  uint push_channel;
 
 }; /* -----  end of class GenericBuffer  ----- */
 
-#endif   /* ----- #ifndef _genericbuffer_h_INC  ----- */
-
+#endif /* ----- #ifndef _genericbuffer_h_INC  ----- */

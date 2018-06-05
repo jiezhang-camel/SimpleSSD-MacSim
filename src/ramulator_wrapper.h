@@ -15,10 +15,10 @@ class Request;
 class MemoryBase;
 
 class RamulatorWrapper {
-private:
+ private:
   MemoryBase *mem;
 
-public:
+ public:
   double tCK;
   RamulatorWrapper(const Config &configs, int cacheline);
   ~RamulatorWrapper();
@@ -29,5 +29,5 @@ public:
 
 } /*namespace ramulator*/
 
-#endif // RAMULATOR
-#endif /*__RAMULATOR_WRAPPER_H*/
+#endif  // RAMULATOR
+#endif  /*__RAMULATOR_WRAPPER_H*/

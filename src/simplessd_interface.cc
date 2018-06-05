@@ -1,35 +1,33 @@
 #include "assert_macros.h"
+#include "bug_detector.h"
 #include "debug_macros.h"
 #include "dram_ctrl.h"
 #include "memory.h"
 #include "memreq_info.h"
-#include "utils.h"
-#include "bug_detector.h"
 #include "network.h"
+#include "progress_checker.h"
+#include "utils.h"
 
 #include "all_knobs.h"
 #include "statistics.h"
 
-#include "simplessd_interface.h"
 #include <cstdio>
+#include "simplessd_interface.h"
 
 #include "simplessd/log/log.hh"
 
-#define DEBUG(args...) _DEBUG(*m_simBase->m_knobs->KNOB_DEBUG_DRAM, ## args)
+#define DEBUG(args...) _DEBUG(*m_simBase->m_knobs->KNOB_DEBUG_DRAM, ##args)
 
-dram_c* simplessd_interface(macsim_c* simBase)
-{
-  dram_c* simplessd_interface_tmp = new simplessd_interface_c(simBase);
+dram_c *simplessd_interface(macsim_c *simBase) {
+  dram_c *simplessd_interface_tmp = new simplessd_interface_c(simBase);
   return simplessd_interface_tmp;
 }
 
-simplessd_interface_c::simplessd_interface_c(macsim_c* simBase)
-	: dram_c(simBase)
-{
-  SimpleSSD::Logger::initLogSystem(std::cout, std::cerr,
-                                   [this]() -> uint64_t {
-                                     return m_cycle*1000/clock_freq;
-                                   });
+simplessd_interface_c::simplessd_interface_c(macsim_c *simBase)
+    : dram_c(simBase) {
+  SimpleSSD::Logger::initLogSystem(std::cout, std::cerr, [this]() -> uint64_t {
+    return m_cycle * 1000 / clock_freq;
+  });
 
   if (!configReader.init((string)*m_simBase->m_knobs->KNOB_SIMPLESSD_CONFIG)) {
     printf("Failed to read SimpleSSD configuration file!\n");
@@ -37,27 +35,24 @@ simplessd_interface_c::simplessd_interface_c(macsim_c* simBase)
     terminate();
   }
 
-	clock_freq = *m_simBase->m_knobs->KNOB_CLOCK_MC;
+  clock_freq = *m_simBase->m_knobs->KNOB_CLOCK_MC;
 
   pHIL = new SimpleSSD::HIL::HIL(&configReader);
-	m_output_buffer = new map<unsigned long long, mem_req_s*>;
+  m_output_buffer = new map<unsigned long long, mem_req_s *>;
 
   pHIL->getLPNInfo(totalLogicalPages, logicalPageSize);
 }
 
-simplessd_interface_c::~simplessd_interface_c()
-{
+simplessd_interface_c::~simplessd_interface_c() {
   delete pHIL;
   delete m_output_buffer;
 }
 
-void simplessd_interface_c::init(int id)
-{
+void simplessd_interface_c::init(int id) {
   m_id = id;
 }
 
-void simplessd_interface_c::send(void)
-{
+void simplessd_interface_c::send(void) {
   bool req_type_checked[2];
   req_type_checked[0] = false;
   req_type_checked[1] = false;
@@ -79,62 +74,72 @@ void simplessd_interface_c::send(void)
     // check both CPU and GPU requests
     if (req_type_checked[0] == true && req_type_checked[1] == true)
       break;
-    for (auto I = m_output_buffer->begin(), E = m_output_buffer->end(); I != E; ) {
-       if (I->first > m_cycle) break;
-	     mem_req_s* req = I->second;
-         if (req_type_allowed[req->m_ptx] == false){
-		   ++I;
-		   continue;
-	     }
+    for (auto I = m_output_buffer->begin(), E = m_output_buffer->end();
+         I != E;) {
+      if (I->first > m_cycle)
+        break;
+
+      mem_req_s *req = I->second;
+      if (req_type_allowed[req->m_ptx] == false) {
+        ++I;
+        continue;
+      }
 
       req_type_checked[req->m_ptx] = true;
       req->m_msg_type = NOC_FILL;
 
-      bool insert_packet = NETWORK->send(req, MEM_MC, m_id, MEM_L3, req->m_cache_id[MEM_L3]);
+      bool insert_packet =
+          NETWORK->send(req, MEM_MC, m_id, MEM_L3, req->m_cache_id[MEM_L3]);
 
       if (!insert_packet) {
-        DEBUG("MC[%d] req:%d addr:0x%llx type:%s noc busy\n",
-            m_id, req->m_id, req->m_addr, mem_req_c::mem_req_type_name[req->m_type]);
+        DEBUG("MC[%d] req:%d addr:0x%llx type:%s noc busy\n", m_id, req->m_id,
+              req->m_addr, mem_req_c::mem_req_type_name[req->m_type]);
         break;
       }
 
       if (*KNOB(KNOB_BUG_DETECTOR_ENABLE) && *KNOB(KNOB_ENABLE_NEW_NOC)) {
         m_simBase->m_bug_detector->allocate_noc(req);
       }
-	    I = m_output_buffer->erase(I);
+      I = m_output_buffer->erase(I);
+
+      m_simBase->m_progress_checker->decrement_outstanding_requests();
+      m_simBase->m_progress_checker->update_dram_progress_info(
+          m_simBase->m_simulation_cycle);
     }
   }
-
 }
 
-void simplessd_interface_c::receive(void)
-{
+void simplessd_interface_c::receive(void) {
   // check router queue every cycle
-  mem_req_s* req = NETWORK->receive(MEM_MC, m_id);
+  mem_req_s *req = NETWORK->receive(MEM_MC, m_id);
   if (!req)
-    return ;
+    return;
 
   if (req && insert_new_req(req)) {
     NETWORK->receive_pop(MEM_MC, m_id);
     if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
       m_simBase->m_bug_detector->deallocate_noc(req);
     }
+
+    m_simBase->m_progress_checker->increment_outstanding_requests();
   }
 }
 
-bool simplessd_interface_c::insert_new_req(mem_req_s* mem_req)
-{
+bool simplessd_interface_c::insert_new_req(mem_req_s *mem_req) {
   SimpleSSD::ICL::Request request;
 
   request.reqID = mem_req->m_id;
   request.offset = mem_req->m_addr % logicalPageSize;
   request.length = mem_req->m_size;
   request.range.slpn = mem_req->m_addr / logicalPageSize;
-  request.range.nlp = (mem_req->m_size + request.offset + logicalPageSize - 1) / logicalPageSize;
+  request.range.nlp = (mem_req->m_size + request.offset + logicalPageSize - 1) /
+                      logicalPageSize;
 
-  uint64_t finishTick = static_cast<unsigned long long>(m_cycle*1000/clock_freq);
+  uint64_t finishTick =
+      static_cast<unsigned long long>(m_cycle * 1000 / clock_freq);
 
-  SimpleSSD::Logger::info("Request arrived at %d cycle (%" PRIu64 " ps)", m_cycle, finishTick);
+  SimpleSSD::Logger::info("Request arrived at %d cycle (%" PRIu64 " ps)",
+                          m_cycle, finishTick);
 
   if (mem_req->m_dirty)
     pHIL->write(request, finishTick);
@@ -144,20 +149,17 @@ bool simplessd_interface_c::insert_new_req(mem_req_s* mem_req)
   finishTick = finishTick / 1000 * clock_freq;
   SimpleSSD::Logger::info("Request finished at %d cycle", finishTick);
 
-  m_output_buffer->insert(
-    pair<unsigned long long, mem_req_s*>(
+  m_output_buffer->insert(pair<unsigned long long, mem_req_s *>(
       static_cast<unsigned long long>(finishTick), mem_req));
 
-	return true;
+  return true;
 }
 
-
 // tick a cycle
-void simplessd_interface_c::run_a_cycle(bool pll_lock)
-{
+void simplessd_interface_c::run_a_cycle(bool pll_lock) {
   if (pll_lock) {
     ++m_cycle;
-    return ;
+    return;
   }
   send();
 
@@ -166,14 +168,13 @@ void simplessd_interface_c::run_a_cycle(bool pll_lock)
   ++m_cycle;
 }
 
-void simplessd_interface_c::print_req(void)
-{
-  FILE* fp = fopen("bug_detect_dram.out", "w");
+void simplessd_interface_c::print_req(void) {
+  FILE *fp = fopen("bug_detect_dram.out", "w");
 
   fprintf(fp, "Current cycle:%llu\n", m_cycle);
-  //fprintf(fp, "Total req:%d\n", m_total_req);
+  // fprintf(fp, "Total req:%d\n", m_total_req);
   fprintf(fp, "\n");
   fclose(fp);
 
-//  g_memory->print_mshr();
+  //  g_memory->print_mshr();
 }

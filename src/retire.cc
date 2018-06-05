@@ -1,31 +1,31 @@
 /*
 Copyright (c) <2012>, <Georgia Institute of Technology> All rights reserved.
 
-Redistribution and use in source and binary forms, with or without modification, are permitted
-provided that the following conditions are met:
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
 
-Redistributions of source code must retain the above copyright notice, this list of conditions
-and the following disclaimer.
+Redistributions of source code must retain the above copyright notice, this list
+of conditions and the following disclaimer.
 
-Redistributions in binary form must reproduce the above copyright notice, this list of
-conditions and the following disclaimer in the documentation and/or other materials provided
-with the distribution.
+Redistributions in binary form must reproduce the above copyright notice, this
+list of conditions and the following disclaimer in the documentation and/or
+other materials provided with the distribution.
 
-Neither the name of the <Georgia Institue of Technology> nor the names of its contributors
-may be used to endorse or promote products derived from this software without specific prior
-written permission.
+Neither the name of the <Georgia Institue of Technology> nor the names of its
+contributors may be used to endorse or promote products derived from this
+software without specific prior written permission.
 
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR
-IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
-AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
-CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
-OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-POSSIBILITY OF SUCH DAMAGE.
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
-
 
 /**********************************************************************************************
  * File         : retire.cc
@@ -36,27 +36,27 @@ POSSIBILITY OF SUCH DAMAGE.
                   origial author: Jared W.Stark  imported from
  *********************************************************************************************/
 
-
 ///////////////////////////////////////////////////////////////////////////////////////////////
 /// \page retire Retirement stage
 ///
-/// This models retire (commit) stage in the processor pipeline. All instructions are retired
-/// in-order. However, basic execution is in the micro-op granularity. Thus, retirement
-/// should carefully handle this cases.
-/// \li <c>Instruction termination condition</c> - All uops of an instruction retired in-order
-/// \li <c>Thread termination condition</c> - Last uop of a thread
-/// \li <c>Process termination condition</c> - # of thread terminated == # of thread created
+/// This models retire (commit) stage in the processor pipeline. All
+/// instructions are retired in-order. However, basic execution is in the
+/// micro-op granularity. Thus, retirement should carefully handle this cases.
+/// \li <c>Instruction termination condition</c> - All uops of an instruction
+/// retired in-order \li <c>Thread termination condition</c> - Last uop of a
+/// thread \li <c>Process termination condition</c> - # of thread terminated ==
+/// # of thread created
 ///
 /// \section retire_cpu CPU retirement stage
 /// Check the front uop in the rob (in-order retirement).
 ///
 /// \section retire_gpu GPU retirement stage
-/// Since there are possibly many ready-to-retire uops from multiple threads. From all
-/// ready-to-retire uops from all threads, we sort them based on the ready cycle (age).
+/// Since there are possibly many ready-to-retire uops from multiple threads.
+/// From all ready-to-retire uops from all threads, we sort them based on the
+/// ready cycle (age).
 ///
 /// \todo We need to check thread termination condition carefully.
 ///////////////////////////////////////////////////////////////////////////////////////////////
-
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
 /// \page repeat Repeating traces
@@ -65,48 +65,51 @@ POSSIBILITY OF SUCH DAMAGE.
 /// When an application has been terminated, run this application again
 ///
 /// \section repeat_2 Why do we need to repeat traces?
-/// In typical multi-programmed workloads (not multi-threaded), whan an application is
-/// terminated earlier than other applications, typically we keep running early-terminated
-/// application until the last application is terminated.
+/// In typical multi-programmed workloads (not multi-threaded), whan an
+/// application is terminated earlier than other applications, typically we keep
+/// running early-terminated application until the last application is
+/// terminated.
 ///
 /// \section repeat_3 How to enable repeating trace?
 /// There are two ways to enable repeating traces.
-/// \li Multi-programmed workloads - set <b>*m_simBase->m_knobs->KNOB_REPEAT_TRACE 1</b>
-/// \li Single-application - set <b>*m_simBase->m_knobs->KNOB_REPEAT_TRACE 1</b> and
-/// <b>set *m_simBase->m_knobs->KNOB_REPEAT_TRACE_N positive number</b>
+/// \li Multi-programmed workloads - set
+/// <b>*m_simBase->m_knobs->KNOB_REPEAT_TRACE 1</b> \li Single-application - set
+/// <b>*m_simBase->m_knobs->KNOB_REPEAT_TRACE 1</b> and <b>set
+/// *m_simBase->m_knobs->KNOB_REPEAT_TRACE_N positive number</b>
 ///////////////////////////////////////////////////////////////////////////////////////////////
 
+#include "retire.h"
 #include "bug_detector.h"
 #include "core.h"
 #include "frontend.h"
 #include "process_manager.h"
-#include "retire.h"
-#include "rob.h"
+#include "progress_checker.h"
 #include "resource.h"
+#include "rob.h"
 #include "rob_smc.h"
 #include "uop.h"
-#include "progress_checker.h"
 
 #include "config.h"
 
-#include "knob.h"
 #include "debug_macros.h"
+#include "knob.h"
 #include "statistics.h"
 
 #include "all_knobs.h"
 
-#define DEBUG(args...)   _DEBUG(*m_simBase->m_knobs->KNOB_DEBUG_RETIRE_STAGE, ## args)
-#define DEBUG_CORE(m_core_id, args...)       \
+#define DEBUG(args...) \
+  _DEBUG(*m_simBase->m_knobs->KNOB_DEBUG_RETIRE_STAGE, ##args)
+#define DEBUG_CORE(m_core_id, args...)                            \
   if (m_core_id == *m_simBase->m_knobs->KNOB_DEBUG_CORE_ID) {     \
-    _DEBUG(*m_simBase->m_knobs->KNOB_DEBUG_RETIRE_STAGE, ## args); \
+    _DEBUG(*m_simBase->m_knobs->KNOB_DEBUG_RETIRE_STAGE, ##args); \
   }
 
 // retire_c constructor
-retire_c::retire_c(RETIRE_INTERFACE_PARAMS(), macsim_c* simBase) : RETIRE_INTERFACE_INIT()
-{
+retire_c::retire_c(RETIRE_INTERFACE_PARAMS(), macsim_c *simBase)
+    : RETIRE_INTERFACE_INIT() {
   m_simBase = simBase;
 
-  m_retire_running      = false;
+  m_retire_running = false;
   m_total_insts_retired = 0;
 
   RETIRE_CONFIG();
@@ -115,20 +118,16 @@ retire_c::retire_c(RETIRE_INTERFACE_PARAMS(), macsim_c* simBase) : RETIRE_INTERF
     m_knob_width = 1000;
 }
 
-
 // retire_c destructor
-retire_c::~retire_c()
-{
+retire_c::~retire_c() {
   if (!m_write_buffer.empty())
     print_wb();
 }
 
-
 // run_a_cycle : try to commit (retire) instructions every cycle
 // Check front ROB (reorder buffer) entry and see whehther it is completed
 // If there are multiple completed uops, commit until pipeline width
-void retire_c::run_a_cycle()
-{
+void retire_c::run_a_cycle() {
   // check whether retire stage is running
   if (!m_retire_running) {
     return;
@@ -137,27 +136,30 @@ void retire_c::run_a_cycle()
   m_cur_core_cycle = m_simBase->m_core_cycle[m_core_id];
   core_c *core = m_simBase->m_core_pointers[m_core_id];
 
-
-  //Ramyad: based on document gpu_sched knob should be removed
-  //gpu_sched 1 use GPU scheduler for GPU cores \todo{this knob should be removed!, it is unnecessary now}
-  vector<uop_c*>* uop_list = NULL;
+  // Ramyad: based on document gpu_sched knob should be removed
+  // gpu_sched 1 use GPU scheduler for GPU cores \todo{this knob should be
+  // removed!, it is unnecessary now}
+  vector<uop_c *> *uop_list = NULL;
   unsigned int uop_list_index = 0;
   if (m_knob_ptx_sim && *m_simBase->m_knobs->KNOB_GPU_SCHED) {
-    // GPU : many retireable uops from multiple threads. Get entire retireable uops
-    uop_list = m_gpu_rob->get_n_uops_in_ready_order(m_knob_width, m_cur_core_cycle);
+    // GPU : many retireable uops from multiple threads. Get entire retireable
+    // uops
+    uop_list =
+        m_gpu_rob->get_n_uops_in_ready_order(m_knob_width, m_cur_core_cycle);
   }
 
-
-  // retire instructions : all micro-ops within an inst. need to be retired for an inst.
+  // retire instructions : all micro-ops within an inst. need to be retired for
+  // an inst.
   for (int count = 0; count < m_knob_width; ++count) {
-    uop_c* cur_uop;
-    rob_c* rob;
+    uop_c *cur_uop;
+    rob_c *rob;
 
     // we need to handle retirement for x86 and ptx separately
 
     // retirement logic for GPU
     if (m_knob_ptx_sim && *m_simBase->m_knobs->KNOB_GPU_SCHED) {
-      // GPU : many retireable uops from multiple threads. Get entire retireable uops
+      // GPU : many retireable uops from multiple threads. Get entire retireable
+      // uops
       if (uop_list_index == uop_list->size()) {
         uop_list->clear();
         break;
@@ -195,7 +197,7 @@ void retire_c::run_a_cycle()
       else if (!cur_uop->m_done_cycle || !cur_uop->m_exec_cycle ||
                cur_uop->m_done_cycle > m_cur_core_cycle) {
         if (cur_uop->m_uop_type == UOP_FULL_FENCE ||
-            cur_uop->m_uop_type == UOP_ACQ_FENCE  ||
+            cur_uop->m_uop_type == UOP_ACQ_FENCE ||
             cur_uop->m_uop_type == UOP_REL_FENCE) {
           STAT_EVENT(FENCE_HEAD_ROB_WAIT);
         }
@@ -203,15 +205,17 @@ void retire_c::run_a_cycle()
       }
 
       if (cur_uop->m_mem_type == MEM_ST) {
-        STAT_CORE_EVENT_N(cur_uop->m_core_id, STORE_RES, m_cur_core_cycle - cur_uop->m_alloc_cycle);
+        STAT_CORE_EVENT_N(cur_uop->m_core_id, STORE_RES,
+                          m_cur_core_cycle - cur_uop->m_alloc_cycle);
         STAT_CORE_EVENT(cur_uop->m_core_id, STORE_NUM);
 
-        if (cur_uop->m_dep_on_hmc_inst)
-        {
-            STAT_CORE_EVENT_N(cur_uop->m_core_id, HMC_DEP_UOP_CYC_TOT, m_cur_core_cycle - cur_uop->m_alloc_cycle);
-            STAT_CORE_EVENT_N(cur_uop->m_core_id, HMC_DEP_UOP_RETIRE_COUNT, 1);
+        if (cur_uop->m_dep_on_hmc_inst) {
+          STAT_CORE_EVENT_N(cur_uop->m_core_id, HMC_DEP_UOP_CYC_TOT,
+                            m_cur_core_cycle - cur_uop->m_alloc_cycle);
+          STAT_CORE_EVENT_N(cur_uop->m_core_id, HMC_DEP_UOP_RETIRE_COUNT, 1);
         }
-      } else if (cur_uop->m_mem_type == MEM_LD) {
+      }
+      else if (cur_uop->m_mem_type == MEM_LD) {
         // check if load can be retired before any previous stores
         if (check_ld_ordering_wb(cur_uop)) {
           STAT_EVENT(RETIRE_SPECLD_NUM);
@@ -221,41 +225,43 @@ void retire_c::run_a_cycle()
 
       if (KNOB(KNOB_FENCE_ENABLE)->getValue() &&
           (cur_uop->m_uop_type == UOP_FULL_FENCE ||
-           cur_uop->m_uop_type == UOP_ACQ_FENCE  ||
+           cur_uop->m_uop_type == UOP_ACQ_FENCE ||
            cur_uop->m_uop_type == UOP_REL_FENCE)) {
-
         ASSERT(rob->is_fence_active());
 
         // STAT_CORE_EVENT(cur_uop->m_core_id, DYN_FENCE_NUM);
         // STAT_EVENT(DYN_FENCE_NUM);
 
-        DEBUG_CORE(cur_uop->m_core_id, "thread_id:%d uop_num:%llu inst_num:%llu fence operations \n",
-               cur_uop->m_thread_id, cur_uop->m_uop_num, cur_uop->m_inst_num);
+        DEBUG_CORE(
+            cur_uop->m_core_id,
+            "thread_id:%d uop_num:%llu inst_num:%llu fence operations \n",
+            cur_uop->m_thread_id, cur_uop->m_uop_num, cur_uop->m_inst_num);
 
         if (KNOB(KNOB_ACQ_REL)->getValue()) {
           fence_type ft;
-          switch(cur_uop->m_uop_type) {
-          case UOP_ACQ_FENCE:
-            ft = FENCE_ACQUIRE;
-            break;
-          case UOP_REL_FENCE:
-            ft = FENCE_RELEASE;
-            break;
-          case UOP_FULL_FENCE:
-            ft = FENCE_FULL;
-            break;
-          default:
-            ASSERT(false);
-            break;
+          switch (cur_uop->m_uop_type) {
+            case UOP_ACQ_FENCE:
+              ft = FENCE_ACQUIRE;
+              break;
+            case UOP_REL_FENCE:
+              ft = FENCE_RELEASE;
+              break;
+            case UOP_FULL_FENCE:
+              ft = FENCE_FULL;
+              break;
+            default:
+              ASSERT(false);
+              break;
           }
           rob->del_fence_entry(ft);
-        } else {
+        }
+        else {
           rob->del_fence_entry(FENCE_FULL);
         }
         STAT_CORE_EVENT_N(cur_uop->m_core_id, FENCE_TOT_CYCLES,
-			  m_cur_core_cycle - cur_uop->m_alloc_cycle); 
+                          m_cur_core_cycle - cur_uop->m_alloc_cycle);
         STAT_CORE_EVENT_N(cur_uop->m_core_id, FENCE_EXEC_CYCLES,
-			  m_cur_core_cycle - cur_uop->m_sched_cycle); 
+                          m_cur_core_cycle - cur_uop->m_sched_cycle);
 
         // update the uop version information
         rob->update_root(cur_uop);
@@ -266,13 +272,12 @@ void retire_c::run_a_cycle()
       POWER_CORE_EVENT(m_core_id, POWER_INST_COMMIT_SEL_LOGIC_R);
     }
 
-
     // all uops belong to previous instruction have been retired : inst_count++
     // nagesh - why are we marking the instruction as retired when the uop
     // marked BOM is retired? shouldn't we do that when the EOM is retired?
     // nagesh - ISTR that I tried changing and something failed - not 100%
-    // sure though : (jaekyu) I think this is the matter of the design. we can update
-    // everything from the first uop of an instruction.
+    // sure though : (jaekyu) I think this is the matter of the design. we can
+    // update everything from the first uop of an instruction.
     if (cur_uop->m_isitBOM) {
       if (cur_uop->m_uop_type >= UOP_FCF && cur_uop->m_uop_type <= UOP_FCMOV) {
         STAT_EVENT(FP_OPS_TOT);
@@ -291,25 +296,28 @@ void retire_c::run_a_cycle()
     STAT_CORE_EVENT(cur_uop->m_core_id, UOP_COUNT);
     STAT_EVENT(UOP_COUNT_TOT);
 
-
     // GPU : barrier
     if (m_knob_ptx_sim && cur_uop->m_bar_type == BAR_FETCH) {
       frontend_c *frontend = core->get_frontend();
       frontend->synch_thread(cur_uop->m_block_id, cur_uop->m_thread_id);
     }
 
-
-    // Terminate thread : current uop is last uop of a thread, so we can retire a thread now
-    thread_s* thread_trace_info = core->get_trace_info(cur_uop->m_thread_id);
+    // Terminate thread : current uop is last uop of a thread, so we can retire
+    // a thread now
+    thread_s *thread_trace_info = core->get_trace_info(cur_uop->m_thread_id);
     process_s *process = thread_trace_info->m_process;
-    if (cur_uop->m_last_uop || m_insts_retired[cur_uop->m_thread_id] >= *m_simBase->m_knobs->KNOB_MAX_INSTS) {
+    if (cur_uop->m_last_uop || m_insts_retired[cur_uop->m_thread_id] >=
+                                   *m_simBase->m_knobs->KNOB_MAX_INSTS) {
       core->m_thread_reach_end[cur_uop->m_thread_id] = true;
       if (!core->m_thread_finished[cur_uop->m_thread_id]) {
         ++core->m_num_thread_reach_end;
-        DEBUG_CORE(m_core_id, "core_id:%d thread_id:%d terminated\n", m_core_id, cur_uop->m_thread_id);
+        DEBUG_CORE(m_core_id, "core_id:%d thread_id:%d terminated\n", m_core_id,
+                   cur_uop->m_thread_id);
 
         // terminate thread
-        m_simBase->m_process_manager->terminate_thread(m_core_id, thread_trace_info, cur_uop->m_thread_id, cur_uop->m_block_id);
+        m_simBase->m_process_manager->terminate_thread(
+            m_core_id, thread_trace_info, cur_uop->m_thread_id,
+            cur_uop->m_block_id);
 
         // disable current thread's fetch engine
         if (!core->m_fetch_ended[cur_uop->m_thread_id]) {
@@ -317,10 +325,14 @@ void retire_c::run_a_cycle()
           core->m_fetching_thread_num--;
         }
 
-        // all threads in an application have been retired. Thus, we can retire an appliacation
-        if (process->m_no_of_threads_terminated == process->m_no_of_threads_created) {
-          if (process->m_current_vector_index == process->m_applications.size()
-            || (*m_simBase->m_ProcessorStats)[INST_COUNT_TOT].getCount() >= *KNOB(KNOB_MAX_INSTS1)) {
+        // all threads in an application have been retired. Thus, we can retire
+        // an appliacation
+        if (process->m_no_of_threads_terminated ==
+            process->m_no_of_threads_created) {
+          if (process->m_current_vector_index ==
+                  process->m_applications.size() ||
+              (*m_simBase->m_ProcessorStats)[INST_COUNT_TOT].getCount() >=
+                  *KNOB(KNOB_MAX_INSTS1)) {
             update_stats(process);
             m_simBase->m_process_manager->terminate_process(process);
             if (m_simBase->m_process_count_without_repeat == 0) {
@@ -339,19 +351,22 @@ void retire_c::run_a_cycle()
         // schedule new threads
         m_simBase->m_process_manager->sim_thread_schedule(false);
       }
-    } // terminate_thread
-
+    }  // terminate_thread
 
     // update number of retired uops
     ++m_uops_retired[cur_uop->m_thread_id];
-    
+
     // let the progress checker know that there is an activity in the retire
     // stage, so that macsim would not enter fast-forward mode.
-    m_simBase->m_progress_checker->update_retire_progress_info(m_simBase->m_simulation_cycle);
+    m_simBase->m_progress_checker->update_retire_progress_info(
+        m_simBase->m_simulation_cycle);
 
-    DEBUG_CORE(m_core_id, "core_id:%d thread_id:%d retired_insts:%lld uop->inst_num:%lld uop_num:%lld done_cycle:%lld\n",
-        m_core_id, cur_uop->m_thread_id, m_insts_retired[cur_uop->m_thread_id], cur_uop->m_inst_num, cur_uop->m_uop_num,
-        cur_uop->m_done_cycle);
+    DEBUG_CORE(m_core_id,
+               "core_id:%d thread_id:%d retired_insts:%lld uop->inst_num:%lld "
+               "uop_num:%lld done_cycle:%lld\n",
+               m_core_id, cur_uop->m_thread_id,
+               m_insts_retired[cur_uop->m_thread_id], cur_uop->m_inst_num,
+               cur_uop->m_uop_num, cur_uop->m_done_cycle);
 
     // release physical registers
     if (cur_uop->m_req_lb) {
@@ -371,8 +386,9 @@ void retire_c::run_a_cycle()
       // free uop resources only for uops not in write buffer
       if (cur_uop->m_mem_type != MEM_ST)
         free_uop_resources(cur_uop);
-    } else {
-        free_uop_resources(cur_uop);
+    }
+    else {
+      free_uop_resources(cur_uop);
     }
   }
 
@@ -385,8 +401,7 @@ void retire_c::run_a_cycle()
 
 // Check if the uop is older than all entries in WB
 // If not, check if its version is less than all entries in WB
-bool retire_c::check_ld_ordering_wb(uop_c* uop)
-{
+bool retire_c::check_ld_ordering_wb(uop_c *uop) {
   if (m_write_buffer.size() == 0)
     return false;
 
@@ -402,8 +417,7 @@ bool retire_c::check_ld_ordering_wb(uop_c* uop)
 }
 
 // returns youngest store with lowest version
-uint16_t retire_c::get_min_wb(Counter& age)
-{
+uint16_t retire_c::get_min_wb(Counter &age) {
   if (m_write_buffer.empty())
     return 0xFFFF;
 
@@ -420,8 +434,7 @@ uint16_t retire_c::get_min_wb(Counter& age)
   return lowest_version;
 }
 
-void retire_c::drain_wb(void)
-{
+void retire_c::drain_wb(void) {
   // all stores are complete
   if (m_write_buffer.empty()) {
     return;
@@ -430,49 +443,50 @@ void retire_c::drain_wb(void)
   int stores_completed = 0;
   bool increment_index = true;
   for (auto uop_it = m_write_buffer.begin(); uop_it != m_write_buffer.end();) {
-      auto cur_uop = *uop_it;
+    auto cur_uop = *uop_it;
 
-      if (!cur_uop->m_done_cycle || cur_uop->m_done_cycle > m_cur_core_cycle ||
-          cur_uop->m_exec_cycle == 0) {
+    if (!cur_uop->m_done_cycle || cur_uop->m_done_cycle > m_cur_core_cycle ||
+        cur_uop->m_exec_cycle == 0) {
+      // this store cannot be completed yet
+      // if FIFO completion, we cannot complete any later stores
+      if (KNOB(KNOB_WB_FIFO)->getValue())
+        break;
 
-        // this store cannot be completed yet
-        // if FIFO completion, we cannot complete any later stores
-        if (KNOB(KNOB_WB_FIFO)->getValue())
-          break;
+      ++uop_it;
+    }
+    else {
+      // the write uop is completed and can be freed
 
-        ++uop_it;
-      } else {
-        // the write uop is completed and can be freed
-
-        // if version of the uop is greater than root fence version
-        // then you cannot retire this uop yet
-        if (KNOB(KNOB_ACQ_REL)->getValue()) {
-          // if current uop is store release and is oldest in wb, drain it
-          if (cur_uop->m_bar_type == REL_BAR) {
-            if (uop_it != m_write_buffer.begin()) {
-              STAT_EVENT(RETIRE_SPECST_NUM);
-              ++uop_it;
-              continue;
-            }
-          } else if (m_rob->version_ordering_check(cur_uop)) {
+      // if version of the uop is greater than root fence version
+      // then you cannot retire this uop yet
+      if (KNOB(KNOB_ACQ_REL)->getValue()) {
+        // if current uop is store release and is oldest in wb, drain it
+        if (cur_uop->m_bar_type == REL_BAR) {
+          if (uop_it != m_write_buffer.begin()) {
             STAT_EVENT(RETIRE_SPECST_NUM);
             ++uop_it;
-
-            // if FIFO completioin, we cannot complete any more stores
-            if (KNOB(KNOB_WB_FIFO)->getValue())
-              break;
-            
             continue;
           }
         }
+        else if (m_rob->version_ordering_check(cur_uop)) {
+          STAT_EVENT(RETIRE_SPECST_NUM);
+          ++uop_it;
 
-        STAT_CORE_EVENT_N(cur_uop->m_core_id, STORE_WB_FREE,
-                          m_cur_core_cycle - cur_uop->m_alloc_cycle);
+          // if FIFO completioin, we cannot complete any more stores
+          if (KNOB(KNOB_WB_FIFO)->getValue())
+            break;
 
-        free_uop_resources(cur_uop);
-        uop_it = delete_wb(uop_it);
-        stores_completed++;
+          continue;
+        }
       }
+
+      STAT_CORE_EVENT_N(cur_uop->m_core_id, STORE_WB_FREE,
+                        m_cur_core_cycle - cur_uop->m_alloc_cycle);
+
+      free_uop_resources(cur_uop);
+      uop_it = delete_wb(uop_it);
+      stores_completed++;
+    }
   }
 
   // tell rob if WB is empty for memory ordering
@@ -480,7 +494,8 @@ void retire_c::drain_wb(void)
   if (m_write_buffer.empty()) {
     m_rob->set_wb_empty(true);
     m_rob->update_orq(-1);
-  } else {
+  }
+  else {
     m_rob->set_wb_empty(false);
     m_rob->update_orq(m_write_buffer[0]->m_uop_num);
   }
@@ -495,58 +510,46 @@ void retire_c::drain_wb(void)
   m_rob->update_orq(lowest_version);
 }
 
-void retire_c::insert_wb(uop_c* uop)
-{
+void retire_c::insert_wb(uop_c *uop) {
   m_write_buffer.push_back(uop);
 }
 
-write_buffer_c::iterator retire_c::delete_wb(write_buffer_c::iterator it)
-{
+write_buffer_c::iterator retire_c::delete_wb(write_buffer_c::iterator it) {
   return m_write_buffer.erase(it);
 }
 
 // free uop
-void retire_c::free_uop_resources(uop_c* cur_uop)
-{
-    for (int ii = 0; ii < cur_uop->m_num_child_uops; ++ii) {
-      if (*m_simBase->m_knobs->KNOB_BUG_DETECTOR_ENABLE)
-        m_simBase->m_bug_detector->deallocate(cur_uop->m_child_uops[ii]);
-      m_uop_pool->release_entry(cur_uop->m_child_uops[ii]->free());
-    }
-
+void retire_c::free_uop_resources(uop_c *cur_uop) {
+  for (int ii = 0; ii < cur_uop->m_num_child_uops; ++ii) {
     if (*m_simBase->m_knobs->KNOB_BUG_DETECTOR_ENABLE)
-      m_simBase->m_bug_detector->deallocate(cur_uop);
+      m_simBase->m_bug_detector->deallocate(cur_uop->m_child_uops[ii]);
+    m_uop_pool->release_entry(cur_uop->m_child_uops[ii]->free());
+  }
 
-    delete [] cur_uop->m_child_uops;
-    m_uop_pool->release_entry(cur_uop->free());
+  if (*m_simBase->m_knobs->KNOB_BUG_DETECTOR_ENABLE)
+    m_simBase->m_bug_detector->deallocate(cur_uop);
+
+  delete[] cur_uop->m_child_uops;
+  m_uop_pool->release_entry(cur_uop->free());
 }
 
 // When a new thread has been scheduled, reset data
-void retire_c::allocate_retire_data(int tid)
-{
+void retire_c::allocate_retire_data(int tid) {
   m_insts_retired[tid] = 0;
-  m_uops_retired[tid]  = 0;
+  m_uops_retired[tid] = 0;
 }
 
-
-void retire_c::start()
-{
+void retire_c::start() {
   m_retire_running = true;
 }
 
-
-void retire_c::stop()
-{
+void retire_c::stop() {
   m_retire_running = false;
 }
 
-
-bool retire_c::is_running()
-{
+bool retire_c::is_running() {
   return m_retire_running;
 }
-
-
 
 #if 0
 // return number of retired instructions per thread
@@ -556,36 +559,33 @@ inline Counter retire_c::get_instrs_retired(int thread_id)
 }
 #endif
 
-
 // return number of retired uops per thread
-Counter retire_c::get_uops_retired(int thread_id)
-{
+Counter retire_c::get_uops_retired(int thread_id) {
   return m_uops_retired[thread_id];
 }
 
-
 // return total number of retired instructions
-Counter retire_c::get_total_insts_retired()
-{
+Counter retire_c::get_total_insts_retired() {
   return m_total_insts_retired;
 }
 
-
 // whan an application is completed, update corresponding stats
-void retire_c::update_stats(process_s* process)
-{
-  core_c* core = m_simBase->m_core_pointers[m_core_id];
+void retire_c::update_stats(process_s *process) {
+  core_c *core = m_simBase->m_core_pointers[m_core_id];
 
   // repeating traces in case of running multiple applications
   // TOCHECK I will get back to this later
-  if (*KNOB(KNOB_REPEAT_TRACE) && process->m_repeat < *KNOB(KNOB_REPEAT_TRACE_N) &&
+  if (*KNOB(KNOB_REPEAT_TRACE) &&
+      process->m_repeat < *KNOB(KNOB_REPEAT_TRACE_N) &&
       core->get_core_type() == "ptx") {
-    if ((process->m_repeat+1) == *m_simBase->m_knobs->KNOB_REPEAT_TRACE_N) {
+    if ((process->m_repeat + 1) == *m_simBase->m_knobs->KNOB_REPEAT_TRACE_N) {
       --m_simBase->m_process_count_without_repeat;
       STAT_EVENT_N(CYC_COUNT_PTX, CYCLE);
-      report("application " << process->m_process_id << " terminated "
-          << "(" << process->m_applications[process->m_current_vector_index-1]
-          << "," << process->m_repeat << ") at " << CYCLE);
+      report("application "
+             << process->m_process_id << " terminated "
+             << "("
+             << process->m_applications[process->m_current_vector_index - 1]
+             << "," << process->m_repeat << ") at " << CYCLE);
     }
   }
   else {
@@ -597,34 +597,33 @@ void retire_c::update_stats(process_s* process)
         STAT_EVENT_N(CYC_COUNT_X86, CYCLE);
       }
       --m_simBase->m_process_count_without_repeat;
-      report("----- application " << process->m_process_id << " terminated ("
-          << process->m_applications[process->m_current_vector_index-1]
-          << "," << process->m_repeat << ") at " << CYCLE);
+      report("----- application "
+             << process->m_process_id << " terminated ("
+             << process->m_applications[process->m_current_vector_index - 1]
+             << "," << process->m_repeat << ") at " << CYCLE);
     }
   }
 }
 
-
 // repeat (terminated) trace, if necessary
-void retire_c::repeat_traces(process_s* process)
-{
-  if ((*KNOB(KNOB_REPEAT_TRACE) || (*KNOB(KNOB_REPEAT_TRACE) && *KNOB(KNOB_REPEAT_TRACE_N) > 0)) &&
+void retire_c::repeat_traces(process_s *process) {
+  if ((*KNOB(KNOB_REPEAT_TRACE) ||
+       (*KNOB(KNOB_REPEAT_TRACE) && *KNOB(KNOB_REPEAT_TRACE_N) > 0)) &&
       m_simBase->m_process_count_without_repeat > 0) {
     // create duplicate process once previous one is terminated
-    m_simBase->m_process_manager->create_process(process->m_kernel_config_name, process->m_repeat+1,
-        process->m_orig_pid);
+    m_simBase->m_process_manager->create_process(process->m_kernel_config_name,
+                                                 process->m_repeat + 1,
+                                                 process->m_orig_pid);
     STAT_EVENT(NUM_REPEAT);
   }
 }
 
-
-void retire_c::print_wb()
-{
+void retire_c::print_wb() {
   DEBUG("Write buffer size:%lu\n", m_write_buffer.size());
   for (auto uop : m_write_buffer) {
-    auto version  = uop->m_mem_version;
+    auto version = uop->m_mem_version;
 
     DEBUG("uop num:%llu done:%llu version:%d core:%d\n", uop->m_uop_num,
-                         uop->m_done_cycle, version, uop->m_core_id);
+          uop->m_done_cycle, version, uop->m_core_id);
   }
 }
