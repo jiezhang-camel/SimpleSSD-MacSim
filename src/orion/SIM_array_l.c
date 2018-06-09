@@ -1679,8 +1679,8 @@ int SIM_array_power_init(SIM_array_info_t *info, SIM_array_t *arr) {
     /* BEGIN: legacy */
     /* bitline precharging energy */
     // GLOB(e_const)[CACHE_PRECHARGE] += ntwl * ntbl *
-    // SIM_array_precharge_power( PARM( n_pre_gate ), pre_size, 10 ) * cols * (((
-    // n_share_amp > 1 ) ? ( 1.0 / n_share_amp ):0 ) + 1 );
+    // SIM_array_precharge_power( PARM( n_pre_gate ), pre_size, 10 ) * cols *
+    // ((( n_share_amp > 1 ) ? ( 1.0 / n_share_amp ):0 ) + 1 );
     /* comparator precharging energy */
     // GLOB(e_const)[CACHE_PRECHARGE] += LPARM_cache_associativity *
     // SIM_array_precharge_power( 1, Wcomppreequ, 1 );

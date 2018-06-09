@@ -794,9 +794,10 @@ class ManifoldTest : public CppUnit::TestFixture {
     EventId ev = Manifold::ScheduleTime(WHEN, &MyObj1::handler0, comp1);
     double scheduledAt = WHEN + Manifold::Now();
 
-    CPPUNIT_ASSERT_DOUBLES_EQUAL(scheduledAt, ev.time,
-                                 DOUBLE_COMP_DELTA);  // CPPUNIT_ASSERT_DOUBLES_EQUAL(expected,
-                                                      // actual, delta)
+    CPPUNIT_ASSERT_DOUBLES_EQUAL(
+        scheduledAt, ev.time,
+        DOUBLE_COMP_DELTA);  // CPPUNIT_ASSERT_DOUBLES_EQUAL(expected,
+                             // actual, delta)
 
     Manifold::StopAtTime(WHEN + 1);
     Manifold::Run();
@@ -816,9 +817,10 @@ class ManifoldTest : public CppUnit::TestFixture {
     EventId ev = Manifold::ScheduleTime(WHEN, &MyObj1::handler1, comp1, m_d1);
     double scheduledAt = WHEN + Manifold::Now();
 
-    CPPUNIT_ASSERT_DOUBLES_EQUAL(scheduledAt, ev.time,
-                                 DOUBLE_COMP_DELTA);  // CPPUNIT_ASSERT_DOUBLES_EQUAL(expected,
-                                                      // actual, delta)
+    CPPUNIT_ASSERT_DOUBLES_EQUAL(
+        scheduledAt, ev.time,
+        DOUBLE_COMP_DELTA);  // CPPUNIT_ASSERT_DOUBLES_EQUAL(expected,
+                             // actual, delta)
 
     Manifold::StopAtTime(WHEN + 1);
     Manifold::Run();
@@ -842,9 +844,10 @@ class ManifoldTest : public CppUnit::TestFixture {
         Manifold::ScheduleTime(WHEN, &MyObj1::handler2, comp1, m_d1, m_d2);
     double scheduledAt = WHEN + Manifold::Now();
 
-    CPPUNIT_ASSERT_DOUBLES_EQUAL(scheduledAt, ev.time,
-                                 DOUBLE_COMP_DELTA);  // CPPUNIT_ASSERT_DOUBLES_EQUAL(expected,
-                                                      // actual, delta)
+    CPPUNIT_ASSERT_DOUBLES_EQUAL(
+        scheduledAt, ev.time,
+        DOUBLE_COMP_DELTA);  // CPPUNIT_ASSERT_DOUBLES_EQUAL(expected,
+                             // actual, delta)
 
     Manifold::StopAtTime(WHEN + 1);
     Manifold::Run();
@@ -868,9 +871,10 @@ class ManifoldTest : public CppUnit::TestFixture {
                                         m_d2, m_d3);
     double scheduledAt = WHEN + Manifold::Now();
 
-    CPPUNIT_ASSERT_DOUBLES_EQUAL(scheduledAt, ev.time,
-                                 DOUBLE_COMP_DELTA);  // CPPUNIT_ASSERT_DOUBLES_EQUAL(expected,
-                                                      // actual, delta)
+    CPPUNIT_ASSERT_DOUBLES_EQUAL(
+        scheduledAt, ev.time,
+        DOUBLE_COMP_DELTA);  // CPPUNIT_ASSERT_DOUBLES_EQUAL(expected,
+                             // actual, delta)
 
     Manifold::StopAtTime(WHEN + 1);
     Manifold::Run();
@@ -896,9 +900,10 @@ class ManifoldTest : public CppUnit::TestFixture {
                                         m_d2, m_d3, m_d4);
     double scheduledAt = WHEN + Manifold::Now();
 
-    CPPUNIT_ASSERT_DOUBLES_EQUAL(scheduledAt, ev.time,
-                                 DOUBLE_COMP_DELTA);  // CPPUNIT_ASSERT_DOUBLES_EQUAL(expected,
-                                                      // actual, delta)
+    CPPUNIT_ASSERT_DOUBLES_EQUAL(
+        scheduledAt, ev.time,
+        DOUBLE_COMP_DELTA);  // CPPUNIT_ASSERT_DOUBLES_EQUAL(expected,
+                             // actual, delta)
 
     Manifold::StopAtTime(WHEN + 1);
     Manifold::Run();
@@ -1529,9 +1534,10 @@ class ManifoldTest : public CppUnit::TestFixture {
     EventId ev = Manifold::ScheduleTime(WHEN, StaticHandlers::Static_handler0);
     double scheduledAt = WHEN + Manifold::Now();
 
-    CPPUNIT_ASSERT_DOUBLES_EQUAL(scheduledAt, ev.time,
-                                 DOUBLE_COMP_DELTA);  // CPPUNIT_ASSERT_DOUBLES_EQUAL(expected,
-                                                      // actual, delta)
+    CPPUNIT_ASSERT_DOUBLES_EQUAL(
+        scheduledAt, ev.time,
+        DOUBLE_COMP_DELTA);  // CPPUNIT_ASSERT_DOUBLES_EQUAL(expected,
+                             // actual, delta)
 
     Manifold::StopAtTime(WHEN + 1);
     Manifold::Run();
@@ -1552,9 +1558,10 @@ class ManifoldTest : public CppUnit::TestFixture {
         Manifold::ScheduleTime(WHEN, StaticHandlers::Static_handler1, m_d1);
     double scheduledAt = WHEN + Manifold::Now();
 
-    CPPUNIT_ASSERT_DOUBLES_EQUAL(scheduledAt, ev.time,
-                                 DOUBLE_COMP_DELTA);  // CPPUNIT_ASSERT_DOUBLES_EQUAL(expected,
-                                                      // actual, delta)
+    CPPUNIT_ASSERT_DOUBLES_EQUAL(
+        scheduledAt, ev.time,
+        DOUBLE_COMP_DELTA);  // CPPUNIT_ASSERT_DOUBLES_EQUAL(expected,
+                             // actual, delta)
 
     Manifold::StopAtTime(WHEN + 1);
     Manifold::Run();
@@ -1578,9 +1585,10 @@ class ManifoldTest : public CppUnit::TestFixture {
                                         m_d1, m_d2);
     double scheduledAt = WHEN + Manifold::Now();
 
-    CPPUNIT_ASSERT_DOUBLES_EQUAL(scheduledAt, ev.time,
-                                 DOUBLE_COMP_DELTA);  // CPPUNIT_ASSERT_DOUBLES_EQUAL(expected,
-                                                      // actual, delta)
+    CPPUNIT_ASSERT_DOUBLES_EQUAL(
+        scheduledAt, ev.time,
+        DOUBLE_COMP_DELTA);  // CPPUNIT_ASSERT_DOUBLES_EQUAL(expected,
+                             // actual, delta)
 
     Manifold::StopAtTime(WHEN + 1);
     Manifold::Run();
@@ -1605,9 +1613,10 @@ class ManifoldTest : public CppUnit::TestFixture {
                                         m_d1, m_d2, m_d3);
     double scheduledAt = WHEN + Manifold::Now();
 
-    CPPUNIT_ASSERT_DOUBLES_EQUAL(scheduledAt, ev.time,
-                                 DOUBLE_COMP_DELTA);  // CPPUNIT_ASSERT_DOUBLES_EQUAL(expected,
-                                                      // actual, delta)
+    CPPUNIT_ASSERT_DOUBLES_EQUAL(
+        scheduledAt, ev.time,
+        DOUBLE_COMP_DELTA);  // CPPUNIT_ASSERT_DOUBLES_EQUAL(expected,
+                             // actual, delta)
 
     Manifold::StopAtTime(WHEN + 1);
     Manifold::Run();
@@ -1633,9 +1642,10 @@ class ManifoldTest : public CppUnit::TestFixture {
                                         m_d1, m_d2, m_d3, m_d4);
     double scheduledAt = WHEN + Manifold::Now();
 
-    CPPUNIT_ASSERT_DOUBLES_EQUAL(scheduledAt, ev.time,
-                                 DOUBLE_COMP_DELTA);  // CPPUNIT_ASSERT_DOUBLES_EQUAL(expected,
-                                                      // actual, delta)
+    CPPUNIT_ASSERT_DOUBLES_EQUAL(
+        scheduledAt, ev.time,
+        DOUBLE_COMP_DELTA);  // CPPUNIT_ASSERT_DOUBLES_EQUAL(expected,
+                             // actual, delta)
 
     Manifold::StopAtTime(WHEN + 1);
     Manifold::Run();

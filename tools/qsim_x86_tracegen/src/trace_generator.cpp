@@ -577,8 +577,9 @@ void TraceWriter::inst_cb(int c, uint64_t v, uint64_t p, uint8_t l,
             }
             else {
               // TODO: LEA instructions reach here. LEA is typically not a
-              // memory read, but in some cases (immediate operand) its behaviour
-              // can be similar to MOV. Not sure if LEA with imm reaches here.
+              // memory read, but in some cases (immediate operand) its
+              // behaviour can be similar to MOV. Not sure if LEA with imm
+              // reaches here.
             }
           }
 

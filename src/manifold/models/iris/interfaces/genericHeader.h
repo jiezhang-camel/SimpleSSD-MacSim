@@ -25,7 +25,6 @@
 #include <stdlib.h>
 #include <sys/io.h>
 #include <sys/time.h>
-#include <sys/time.h>
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
@@ -63,7 +62,7 @@
 //__VA_ARGS__);
 
 //#define LOC cout << "\n" << m_simBase->Mytid << " Time:" << std::dec <<
-//manifold::kernel::Manifold::NowTicks() <<" " << node_id << " "; #define
+// manifold::kernel::Manifold::NowTicks() <<" " << node_id << " "; #define
 //_DBG(fmt,...) LOC printf(fmt,__VA_ARGS__);
 #define _DBG_NOARG(fmt) LOC printf(fmt);
 #define LOC_log                                                         \

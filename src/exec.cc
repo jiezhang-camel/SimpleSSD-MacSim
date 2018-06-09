@@ -768,9 +768,9 @@ void exec_c::run_a_cycle(void) {
         if (uop->m_mem_type == MEM_ST && uop->m_hmc_inst != HMC_NONE) {
           Counter mem_delay = uop->m_done_cycle - uop->m_exec_cycle;
           // cout << mem_delay << " " <<
-          // hmc_type_c::HMC_Type2String(uop->m_hmc_inst) << endl; Cache miss :go
-          // ahead and retire, it is taken care on HMC Cache Hit: +ALU delay +one
-          // L1 hit
+          // hmc_type_c::HMC_Type2String(uop->m_hmc_inst) << endl; Cache miss
+          // :go ahead and retire, it is taken care on HMC Cache Hit: +ALU delay
+          // +one L1 hit
           if (mem_delay < 150) {
             STAT_CORE_EVENT(m_core_id, HMC_ADD_OVERHEAD_COUNT);
             uop->m_done_cycle += *KNOB(KNOB_HMC_TEST_OVERHEAD);

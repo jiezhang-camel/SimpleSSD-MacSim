@@ -70,8 +70,8 @@
   1 /* do output virtual channels share crossbar output ports? */
 
 /* crossbar parameters */
-#define PARM_crossbar_model                                            \
-  MULTREE_CROSSBAR           /* crossbar model type MATRIX_CROSSBAR or \
+#define PARM_crossbar_model                                              \
+  MULTREE_CROSSBAR           /* crossbar model type MATRIX_CROSSBAR or \ \
                                 MULTREE_CROSSBAR*/
 #define PARM_crsbar_degree 4 /* crossbar mux degree */
 #define PARM_connect_type TRISTATE_GATE /* crossbar connector type */
@@ -139,8 +139,8 @@
 //#define PARM_bitline_pre_model	SINGLE_OTHER
 
 /* switch allocator arbiter parameters */
-#define PARM_sw_in_arb_model                                                \
-  RR_ARBITER /* input side arbiter model type, MATRIX_ARBITER , RR_ARBITER, \
+#define PARM_sw_in_arb_model                                                  \
+  RR_ARBITER /* input side arbiter model type, MATRIX_ARBITER , RR_ARBITER, \ \
                 QUEUE_ARBITER*/
 #define PARM_sw_in_arb_ff_model \
   NEG_DFF /* input side arbiter flip-flop model type */
@@ -152,13 +152,13 @@
 /* virtual channel allocator arbiter parameters */
 #define PARM_vc_allocator_type \
   TWO_STAGE_ARB /*vc allocator type, ONE_STAGE_ARB, TWO_STAGE_ARB, VC_SELECT*/
-#define PARM_vc_in_arb_model                                    \
-  RR_ARBITER /*input side arbiter model type for TWO_STAGE_ARB. \
+#define PARM_vc_in_arb_model                                      \
+  RR_ARBITER /*input side arbiter model type for TWO_STAGE_ARB. \ \
                 MATRIX_ARBITER, RR_ARBITER, QUEUE_ARBITER*/
 #define PARM_vc_in_arb_ff_model \
   NEG_DFF /* input side arbiter flip-flop model type */
-#define PARM_vc_out_arb_model                                             \
-  RR_ARBITER /*output side arbiter model type (for both ONE_STAGE_ARB and \
+#define PARM_vc_out_arb_model                                               \
+  RR_ARBITER /*output side arbiter model type (for both ONE_STAGE_ARB and \ \
                 TWO_STAGE_ARB). MATRIX_ARBITER, RR_ARBITER, QUEUE_ARBITER */
 #define PARM_vc_out_arb_ff_model \
   NEG_DFF /* output side arbiter flip-flop model type */
@@ -167,16 +167,16 @@
 
 /*link wire parameters*/
 #define WIRE_LAYER_TYPE GLOBAL /*wire layer type, INTERMEDIATE or GLOBAL*/
-#define PARM_width_spacing                                                 \
-  DWIDTH_DSPACE /*choices are SWIDTH_SSPACE, SWIDTH_DSPACE, DWIDTH_SSPACE, \
+#define PARM_width_spacing                                                   \
+  DWIDTH_DSPACE /*choices are SWIDTH_SSPACE, SWIDTH_DSPACE, DWIDTH_SSPACE, \ \
                    DWIDTH_DSPACE*/
 #define PARM_buffering_scheme MIN_DELAY /*choices are MIN_DELAY, STAGGERED */
 #define PARM_shielding FALSE            /*choices are TRUE, FALSE */
 
 /*clock power parameters*/
 #define PARM_pipeline_stages 3 /*number of pipeline stages*/
-#define PARM_H_tree_clock                                         \
-  0 /*1 means calculate H_tree_clock power, 0 means not calculate \
+#define PARM_H_tree_clock                                           \
+  0 /*1 means calculate H_tree_clock power, 0 means not calculate \ \
        H_tree_clock*/
 #define PARM_router_diagonal 442 /*router diagonal in micro-meter */
 

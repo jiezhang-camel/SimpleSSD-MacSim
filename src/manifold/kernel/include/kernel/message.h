@@ -15,7 +15,7 @@ struct Message_s {
   int compIndex;   // component index
   int inputIndex;  // index of input receiving the message
   int isTick;      // a boolean indicating whether sendTime/recvTime is tick or
-               // seconds
+                   // seconds
   Ticks_t sendTick;
   Ticks_t recvTick;
   Time_t sendTime;

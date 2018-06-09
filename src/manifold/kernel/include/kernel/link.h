@@ -51,8 +51,8 @@ LinkOutputRemote<T>::LinkOutputRemote(Link<T> *link, int compIdx,
 
 // The following 2 templated Serialize() functions are created to solve a
 // compiler problem occurring when the data sent between 2 components is a
-// pointer type, such as MyType*. In this case, calling T :: Serialize() directly
-// in ScheduleRxEvent() below would cause a compile problem.
+// pointer type, such as MyType*. In this case, calling T :: Serialize()
+// directly in ScheduleRxEvent() below would cause a compile problem.
 template <typename T>
 int Serialize(T data, unsigned char **d) {
   return T ::Serialize(data, d);
@@ -67,8 +67,8 @@ template <typename T>
 void LinkOutputRemote<T>::ScheduleRxEvent() {
   // unsigned char d[MAX_DATA_SIZE];
   // Cannot call T :: Serialize(this->data, d), because if T is a pointer type
-  // such as MyType*, then compiler would complain Serialize() is not a member of
-  // MyType*. Therefore, we created 2 template functions above to solve this
+  // such as MyType*, then compiler would complain Serialize() is not a member
+  // of MyType*. Therefore, we created 2 template functions above to solve this
   // problem.
   unsigned char *d;
 

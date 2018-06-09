@@ -182,7 +182,8 @@ void cache_c::find_tag_and_set(Addr addr, Addr *tag, int *set) {
     // m_interleave_mask << " addr & imask " << (addr & m_interleave_mask) << "
     // other part short " << ((addr >> m_interleave_bits) / m_num_tiles)  << "
     // other part " << (((addr >> m_interleave_bits) / m_num_tiles) <<
-    // m_interleave_bits) << " num tiles " << dec << m_num_tiles << " tile bits "
+    // m_interleave_bits) << " num tiles " << dec << m_num_tiles << " tile bits
+    // "
     // << m_tile_bits << " tile " << dec << ((m_num_tiles > 1) ? ((addr >>
     // m_interleave_bits) % m_num_tiles) : 0) <<  " tag mask " << hex <<
     // m_tag_mask << " tag " << *tag << " set mask " << m_set_mask << " set " <<

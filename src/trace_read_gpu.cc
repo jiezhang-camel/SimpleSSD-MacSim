@@ -729,8 +729,8 @@ inst_info_s *gpu_decoder_c::convert_pinuop_to_t_uop(void *trace_info,
       if (trace_uop[ii]->m_mem_type) {
         // nagesh mar-10-2010 - to form single uop for uncoalesced memory
         // accesses this checking should be done for every instance of the
-        // instruction, not for only the first instance, because depending on the
-        // address calculation, some accesses may be coalesced, some may be
+        // instruction, not for only the first instance, because depending on
+        // the address calculation, some accesses may be coalesced, some may be
         // uncoalesced
         trace_uop[ii]->m_mul_mem_uops = 0;
       }

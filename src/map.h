@@ -41,8 +41,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "global_defs.h"
 #include "global_types.h"
-#include "utils.h"
 #include "uop.h"
+#include "utils.h"
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
 /// \brief dependence information
