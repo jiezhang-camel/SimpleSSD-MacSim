@@ -17,3 +17,4 @@ Makefile
 Makefile.in
 *.dirstamp
 sst-unit-test/*.out
+src/DRAMSim2/
