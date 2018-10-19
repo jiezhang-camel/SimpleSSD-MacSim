@@ -42,6 +42,7 @@ def CheckCPP11():
 def pre_compile_check():
   ## Environment
   env = Environment()
+  env.Replace(CXX = "/opt/rh/devtoolset-4/root/usr/bin/g++")
   custom_vars = set(['AS', 'AR', 'CC', 'CXX', 'HOME', 'LD_LIBRARY_PATH', 'PATH', 'RANLIB'])
 
   for key,val in os.environ.iteritems():
