@@ -273,6 +273,7 @@ class dram_ctrl_c : public dram_c {
   list<mem_req_s *> *m_output_buffer;     /**< output buffer */
   list<mem_req_s *> *m_tmp_output_buffer; /**< buffer to simulate any additional
                                              dram latency */
+  ofstream *m_memory_trace; /**< Jie: dump memory trace into file */
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////

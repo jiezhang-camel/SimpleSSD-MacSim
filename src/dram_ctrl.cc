@@ -237,6 +237,8 @@ dram_ctrl_c::dram_ctrl_c(macsim_c *simBase) : dram_c(simBase) {
   else {
     m_tmp_output_buffer = NULL;
   }
+  m_memory_trace = new ofstream(  //Jie: memory trace
+      KNOB(KNOB_STATISTICS_OUT_DIRECTORY)->getValue() + "/memory_trace.out");
 }
 
 // dram controller destructor
@@ -302,7 +304,7 @@ bool dram_ctrl_c::insert_new_req(mem_req_s *mem_req) {
       return false;
     }
   }
-
+  (*m_memory_trace) << mem_req->m_addr << endl; //Jie: memory trace
   // insert a new request to DRB
   insert_req_in_drb(mem_req, bid, rid, cid);
   on_insert(mem_req, bid, rid, cid);
