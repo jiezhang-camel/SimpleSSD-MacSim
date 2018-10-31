@@ -1,3 +1,6 @@
 [submodule "src/rwqueue"]
 	path = src/rwqueue
-	url = https://github.com/cameron314/readerwriterqueue
+    url = https://github.com/cameron314/readerwriterqueue
+[submodule "src/simplessd"]
+    path = src/simplessd
+    url = git@repo.yonsei.ac.kr:simplessd/simplessd
