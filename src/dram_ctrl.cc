@@ -884,6 +884,34 @@ dc_ssg_c::dc_ssg_c(macsim_c *simBase) : dc_frfcfs_c(simBase) {
   }
 }
 
+// tick a cycle
+void dc_ssg_c::run_a_cycle(bool pll_lock) {
+  if (pll_lock) {
+    ++m_cycle;
+    return;
+  }
+  send();
+  if (m_tmp_output_buffer) {
+    delay_packet();
+  }
+  channel_schedule();
+  bank_schedule();
+
+  receive();
+
+  // starvation check
+  progress_check();
+  for (int ii = 0; ii < m_num_channel; ++ii) {
+    // check whether the dram bandwidth has been saturated
+    if (avail_data_bus(ii)) {
+      STAT_EVENT(DRAM_CHANNEL0_DBUS_IDLE + ii);
+    }
+  }
+  on_run_a_cycle();
+
+  ++m_cycle;
+}
+
 dc_ssg_c::~dc_ssg_c() {
   delete[] ssg_req_list;
 }

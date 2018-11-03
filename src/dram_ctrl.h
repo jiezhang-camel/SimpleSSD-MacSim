@@ -334,6 +334,10 @@ class dc_ssg_c : public dc_frfcfs_c {
    * Destructor
    */
   ~dc_ssg_c();
+  /**
+   * Tick a cycle.
+   */
+  void run_a_cycle(bool);
   int m_num_rows;               /**< number of dram rows */
   struct _ssg_req_s{
     Addr m_addr;
