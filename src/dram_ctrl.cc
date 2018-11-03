@@ -368,7 +368,6 @@ void dram_ctrl_c::run_a_cycle(bool pll_lock) {
   }
   channel_schedule();
   bank_schedule();
-
   receive();
 
   // starvation check
@@ -885,89 +884,105 @@ dc_ssg_c::dc_ssg_c(macsim_c *simBase) : dc_frfcfs_c(simBase) {
   }
   m_ssd_buffer = new map<unsigned long long, mem_req_s *>[m_num_bank];
   latest_cycle = 0;
+  ready_time = 0;
 }
 
 void dc_ssg_c::receive(void) {
+  int num_mc = *m_simBase->m_knobs->KNOB_DRAM_NUM_MC;
   // check router queue every cycle
   mem_req_s *req = NETWORK->receive(MEM_MC, m_id);
-  if (!req)
-    return;
-  // address parsing
-  Addr addr = req->m_addr;
-  Addr bid_xor;
-  Addr cid;
-  Addr bid;
-  Addr rid;
-  int num_mc = *m_simBase->m_knobs->KNOB_DRAM_NUM_MC;
-  if ((num_mc & (num_mc - 1)) == 0) {  // if num_mc is a power of 2
-    bid_xor = (addr >> m_bid_xor_shift) & m_bid_mask;
-    cid = addr & m_cid_mask;
-    addr = addr >> m_bid_shift;
-    bid = addr & m_bid_mask;
-    addr = addr >> m_rid_shift;
-    rid = addr;
-  }
-  else {
-    bid_xor = (addr >> m_bid_xor_shift) & m_bid_mask;
-    cid = addr & m_cid_mask;
-    addr = (addr >> m_bid_shift) / num_mc;
-
-    bid = addr & m_bid_mask;
-    addr = addr >> m_rid_shift;
-    rid = addr;
-  }
-  // Permutation-based Interleaving
-  if (*KNOB(KNOB_DRAM_BANK_XOR_INDEX)) {
-    bid = bid ^ bid_xor;
-  }
-  // Check if the request hits in DRAM
-  if (ssg_req_list[bid*m_num_rows+rid%m_num_rows].m_row_addr != rid){
-    bool is_hit = false;
-    // The overhead of checking ssd_buffer may be high
-    for (auto I = m_ssd_buffer[bid].begin(), E = m_ssd_buffer[bid].end();
-         I != E; I++){
-      int tmp_rid;
-      if ((num_mc & (num_mc - 1)) == 0) {
-        tmp_rid = I->second->m_addr >> m_bid_shift >> m_rid_shift;
+  if (req){
+    // address parsing
+    Addr addr = req->m_addr;
+    Addr bid_xor;
+    Addr cid;
+    Addr bid;
+    Addr rid;
+    if ((num_mc & (num_mc - 1)) == 0) {  // if num_mc is a power of 2
+      bid_xor = (addr >> m_bid_xor_shift) & m_bid_mask;
+      cid = addr & m_cid_mask;
+      addr = addr >> m_bid_shift;
+      bid = addr & m_bid_mask;
+      addr = addr >> m_rid_shift;
+      rid = addr;
+    }
+    else {
+      bid_xor = (addr >> m_bid_xor_shift) & m_bid_mask;
+      cid = addr & m_cid_mask;
+      addr = (addr >> m_bid_shift) / num_mc;
+  
+      bid = addr & m_bid_mask;
+      addr = addr >> m_rid_shift;
+      rid = addr;
+    }
+    // Permutation-based Interleaving
+    if (*KNOB(KNOB_DRAM_BANK_XOR_INDEX)) {
+      bid = bid ^ bid_xor;
+    }
+    // Check if the request hits in DRAM
+    if (ssg_req_list[bid*m_num_rows+rid%m_num_rows].m_row_addr != rid){
+      bool is_hit = false;
+      // The overhead of checking ssd_buffer may be high
+      for (auto I = m_ssd_buffer[bid].begin(), E = m_ssd_buffer[bid].end();
+           I != E; I++){
+        int tmp_rid;
+        if ((num_mc & (num_mc - 1)) == 0) {
+          tmp_rid = I->second->m_addr >> m_bid_shift >> m_rid_shift;
+        }
+        else {
+          tmp_rid = ((I->second->m_addr >> m_bid_shift) / num_mc) >> m_rid_shift;
+        }
+        if ( tmp_rid == rid){
+          is_hit = true;
+          unsigned long long tmp_time = I->first+1;
+          while (1){
+            auto iter = m_ssd_buffer[bid].find(tmp_time);
+            if (iter != m_ssd_buffer[bid].end()) tmp_time++;
+            else break;
+          }
+          m_ssd_buffer[bid].insert(pair<unsigned long long, mem_req_s *>(
+            tmp_time, req));
+          cout<< "push in ssd_buffer: " << req->m_addr << " R/W: " << req->m_dirty << " current time " << m_cycle << " ready time " << tmp_time << " MC: " << m_id << " Bank: " << bid << " Row: " << rid << endl;
+          break;
+        }
       }
-      else {
-        tmp_rid = ((I->second->m_addr >> m_bid_shift) / num_mc) >> m_rid_shift;
-      }
-      if ( tmp_rid == rid){
-        is_hit = true;
+      if (!is_hit){
+        if (latest_cycle < m_cycle) latest_cycle = m_cycle;
+        if (ssg_req_list[bid*m_num_rows+rid%m_num_rows].m_dirty == false)
+          latest_cycle += SSD_read_delay;
+        else latest_cycle += SSD_read_delay + SSD_write_delay;
+        while (1){
+          auto iter = m_ssd_buffer[bid].find(latest_cycle);
+          if (iter != m_ssd_buffer[bid].end()) latest_cycle++;
+          else break;
+        }        
         m_ssd_buffer[bid].insert(pair<unsigned long long, mem_req_s *>(
-          static_cast<unsigned long long>(I->first+1), req));
-        break;
+          latest_cycle, req));  
+        cout<< "push in ssd_buffer: " << req->m_addr << " R/W: " << req->m_dirty << " current time " << m_cycle << " ready time " << latest_cycle << " MC: " << m_id << " Bank: " << bid << " Row: " << rid << endl;    
       }
-    }
-    if (!is_hit){
-      if (latest_cycle < m_cycle) latest_cycle = m_cycle;
-      if (ssg_req_list[bid*m_num_rows+rid%m_num_rows].m_dirty == false)
-        latest_cycle += SSD_read_delay;
-      else latest_cycle += SSD_read_delay + SSD_write_delay;
-      m_ssd_buffer[bid].insert(pair<unsigned long long, mem_req_s *>(
-        latest_cycle, req));      
-    }
-    NETWORK->receive_pop(MEM_MC, m_id);
-    if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
-      m_simBase->m_bug_detector->deallocate_noc(req);
-    }    
-  }
-  else{
-    if (req && insert_new_req(req)) {
       NETWORK->receive_pop(MEM_MC, m_id);
       if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
         m_simBase->m_bug_detector->deallocate_noc(req);
-      }
+      }    
+    }
+    else{
+      if (req && insert_new_req(req)) {
+        cout<< "serve in dram_buffer: " << req->m_addr << " current time " << m_cycle << endl;
+        NETWORK->receive_pop(MEM_MC, m_id);
+        if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
+          m_simBase->m_bug_detector->deallocate_noc(req);
+        }
+      }    
     }    
   }
-  // check if requests of m_ssd_buffer ready to insert  
+  // check if requests of m_ssd_buffer ready to insert
   for (auto ii = 0; ii < m_num_bank; ii++){
     auto I = m_ssd_buffer[ii].begin();
     auto E = m_ssd_buffer[ii].end();
     if (I != E){
-      if (I->first >= m_cycle)
+      if (I->first >= m_cycle){
         continue;
+      }
       if (insert_new_req(I->second)) {
         int tmp_rid;
         if ((num_mc & (num_mc - 1)) == 0) {
@@ -979,10 +994,11 @@ void dc_ssg_c::receive(void) {
         ssg_req_list[ii*m_num_rows+tmp_rid%m_num_rows].m_row_addr = tmp_rid;
         ssg_req_list[ii*m_num_rows+tmp_rid%m_num_rows].m_dirty = 
                                                          I->second->m_dirty;
+        cout<< "pop from ssd_buffer: " << I->second->m_addr << " current time " << m_cycle << endl; 
         m_ssd_buffer[ii].erase(I);
       }
     }
-  }
+  }  
 }
 
 dc_ssg_c::~dc_ssg_c() {
