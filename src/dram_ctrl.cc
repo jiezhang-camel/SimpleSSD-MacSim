@@ -884,7 +884,6 @@ dc_ssg_c::dc_ssg_c(macsim_c *simBase) : dc_frfcfs_c(simBase) {
   }
   m_ssd_buffer = new map<unsigned long long, mem_req_s *>[m_num_bank];
   latest_cycle = 0;
-  ready_time = 0;
 }
 
 void dc_ssg_c::receive(void) {
