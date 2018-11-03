@@ -876,7 +876,12 @@ drb_entry_s *dc_frfcfs_c::schedule(list<drb_entry_s *> *buffer) {
 }
 
 dc_ssg_c::dc_ssg_c(macsim_c *simBase) : dc_frfcfs_c(simBase) {
-  //m_sort = new sort_func(this);
+  m_num_rows = *KNOB(KNOB_DRAM_NUM_ROWS);
+  ssg_req_list = new struct _ssg_req_s[m_num_rows * m_num_bank];
+  for (int ii = 0; ii < m_num_rows * m_num_bank; ii++ ){
+    ssg_req_list[ii].m_addr = ULLONG_MAX;
+    ssg_req_list[ii].m_dirty = false;
+  }
 }
 
 dc_ssg_c::~dc_ssg_c() {}
