@@ -46,6 +46,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "global_types.h"
 #include "macsim.h"
 
+#include "simplessd/hil/hil.hh"
+
 ///////////////////////////////////////////////////////////////////////////////////////////////
 /// \brief dram state enumerator
 ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -346,6 +348,22 @@ class dc_ssg_c : public dc_frfcfs_c {
   struct _ssg_req_s *ssg_req_list; 
   map<unsigned long long, mem_req_s *> *m_ssd_buffer;
   unsigned long long latest_cycle;
+
+ public:
+  void init(int id);
+  void run_a_cycle(bool);
+  void send(void);
+  void receive(void);
+  void print_req(void);
+  bool insert_new_req(mem_req_s *);
+
+ private:
+  SimpleSSD::ConfigReader configReader;
+  SimpleSSD::HIL::HIL *pHIL;
+  uint64_t totalLogicalPages;
+  uint32_t logicalPageSize;
+
+  float clock_freq;
 };
 
 #endif

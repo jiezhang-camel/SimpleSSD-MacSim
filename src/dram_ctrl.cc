@@ -48,6 +48,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "all_knobs.h"
 #include "statistics.h"
 
+#include <cstdio>
+#include "simplessd_interface.h"
+
+#include "simplessd/log/log.hh"
+
 #define DEBUG(args...) _DEBUG(*m_simBase->m_knobs->KNOB_DEBUG_DRAM, ##args)
 #define SSD_read_delay 50000 //assume SSD delay as 50K cycles
 #define SSD_write_delay 500000 //assume SSD write delay as 500K cycles
@@ -884,6 +889,22 @@ dc_ssg_c::dc_ssg_c(macsim_c *simBase) : dc_frfcfs_c(simBase) {
   }
   m_ssd_buffer = new map<unsigned long long, mem_req_s *>[m_num_bank];
   latest_cycle = 0;
+
+  SimpleSSD::Logger::initLogSystem(std::cout, std::cerr, [this]() -> uint64_t {
+    return m_cycle * 1000 / clock_freq;
+  });
+
+  if (!configReader.init((string)*m_simBase->m_knobs->KNOB_SIMPLESSD_CONFIG)) {
+    printf("Failed to read SimpleSSD configuration file!\n");
+
+    terminate();
+  }
+
+  clock_freq = *m_simBase->m_knobs->KNOB_CLOCK_MC;
+
+  pHIL = new SimpleSSD::HIL::HIL(&configReader);
+
+  pHIL->getLPNInfo(totalLogicalPages, logicalPageSize);
 }
 
 void dc_ssg_c::receive(void) {
@@ -998,4 +1019,6 @@ void dc_ssg_c::receive(void) {
 
 dc_ssg_c::~dc_ssg_c() {
   delete[] ssg_req_list;
+  delete[] m_ssd_buffer;
+  delete pHIL;
 }
