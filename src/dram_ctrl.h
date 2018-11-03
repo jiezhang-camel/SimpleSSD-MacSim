@@ -335,15 +335,17 @@ class dc_ssg_c : public dc_frfcfs_c {
    */
   ~dc_ssg_c();
   /**
-   * Tick a cycle.
+   * Receive a packet from the NoC
    */
-  void run_a_cycle(bool);
+  void receive(void);
   int m_num_rows;               /**< number of dram rows */
   struct _ssg_req_s{
-    Addr m_addr;
+    Addr m_row_addr;
     bool m_dirty;
   };
   struct _ssg_req_s *ssg_req_list; 
+  map<unsigned long long, mem_req_s *> *m_ssd_buffer;
+  unsigned long long latest_cycle;
 };
 
 #endif

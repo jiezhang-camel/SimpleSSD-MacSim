@@ -49,7 +49,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "statistics.h"
 
 #define DEBUG(args...) _DEBUG(*m_simBase->m_knobs->KNOB_DEBUG_DRAM, ##args)
-
+#define SSD_read_delay 50000 //assume SSD delay as 50K cycles
+#define SSD_write_delay 500000 //assume SSD write delay as 500K cycles
 static int total_dram_bandwidth = 0;
 
 ///
@@ -879,37 +880,109 @@ dc_ssg_c::dc_ssg_c(macsim_c *simBase) : dc_frfcfs_c(simBase) {
   m_num_rows = *KNOB(KNOB_DRAM_NUM_ROWS);
   ssg_req_list = new struct _ssg_req_s[m_num_rows * m_num_bank];
   for (int ii = 0; ii < m_num_rows * m_num_bank; ii++ ){
-    ssg_req_list[ii].m_addr = ULLONG_MAX;
+    ssg_req_list[ii].m_row_addr = ULLONG_MAX;
     ssg_req_list[ii].m_dirty = false;
   }
+  m_ssd_buffer = new map<unsigned long long, mem_req_s *>[m_num_bank];
+  latest_cycle = 0;
 }
 
-// tick a cycle
-void dc_ssg_c::run_a_cycle(bool pll_lock) {
-  if (pll_lock) {
-    ++m_cycle;
+void dc_ssg_c::receive(void) {
+  // check router queue every cycle
+  mem_req_s *req = NETWORK->receive(MEM_MC, m_id);
+  if (!req)
     return;
+  // address parsing
+  Addr addr = req->m_addr;
+  Addr bid_xor;
+  Addr cid;
+  Addr bid;
+  Addr rid;
+  int num_mc = *m_simBase->m_knobs->KNOB_DRAM_NUM_MC;
+  if ((num_mc & (num_mc - 1)) == 0) {  // if num_mc is a power of 2
+    bid_xor = (addr >> m_bid_xor_shift) & m_bid_mask;
+    cid = addr & m_cid_mask;
+    addr = addr >> m_bid_shift;
+    bid = addr & m_bid_mask;
+    addr = addr >> m_rid_shift;
+    rid = addr;
   }
-  send();
-  if (m_tmp_output_buffer) {
-    delay_packet();
+  else {
+    bid_xor = (addr >> m_bid_xor_shift) & m_bid_mask;
+    cid = addr & m_cid_mask;
+    addr = (addr >> m_bid_shift) / num_mc;
+
+    bid = addr & m_bid_mask;
+    addr = addr >> m_rid_shift;
+    rid = addr;
   }
-  channel_schedule();
-  bank_schedule();
-
-  receive();
-
-  // starvation check
-  progress_check();
-  for (int ii = 0; ii < m_num_channel; ++ii) {
-    // check whether the dram bandwidth has been saturated
-    if (avail_data_bus(ii)) {
-      STAT_EVENT(DRAM_CHANNEL0_DBUS_IDLE + ii);
+  // Permutation-based Interleaving
+  if (*KNOB(KNOB_DRAM_BANK_XOR_INDEX)) {
+    bid = bid ^ bid_xor;
+  }
+  // Check if the request hits in DRAM
+  if (ssg_req_list[bid*m_num_rows+rid%m_num_rows].m_row_addr != rid){
+    bool is_hit = false;
+    // The overhead of checking ssd_buffer may be high
+    for (auto I = m_ssd_buffer[bid].begin(), E = m_ssd_buffer[bid].end();
+         I != E; I++){
+      int tmp_rid;
+      if ((num_mc & (num_mc - 1)) == 0) {
+        tmp_rid = I->second->m_addr >> m_bid_shift >> m_rid_shift;
+      }
+      else {
+        tmp_rid = ((I->second->m_addr >> m_bid_shift) / num_mc) >> m_rid_shift;
+      }
+      if ( tmp_rid == rid){
+        is_hit = true;
+        m_ssd_buffer[bid].insert(pair<unsigned long long, mem_req_s *>(
+          static_cast<unsigned long long>(I->first+1), req));
+        break;
+      }
+    }
+    if (!is_hit){
+      if (latest_cycle < m_cycle) latest_cycle = m_cycle;
+      if (ssg_req_list[bid*m_num_rows+rid%m_num_rows].m_dirty == false)
+        latest_cycle += SSD_read_delay;
+      else latest_cycle += SSD_read_delay + SSD_write_delay;
+      m_ssd_buffer[bid].insert(pair<unsigned long long, mem_req_s *>(
+        latest_cycle, req));      
+    }
+    NETWORK->receive_pop(MEM_MC, m_id);
+    if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
+      m_simBase->m_bug_detector->deallocate_noc(req);
+    }    
+  }
+  else{
+    if (req && insert_new_req(req)) {
+      NETWORK->receive_pop(MEM_MC, m_id);
+      if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
+        m_simBase->m_bug_detector->deallocate_noc(req);
+      }
+    }    
+  }
+  // check if requests of m_ssd_buffer ready to insert  
+  for (auto ii = 0; ii < m_num_bank; ii++){
+    auto I = m_ssd_buffer[ii].begin();
+    auto E = m_ssd_buffer[ii].end();
+    if (I != E){
+      if (I->first >= m_cycle)
+        continue;
+      if (insert_new_req(I->second)) {
+        int tmp_rid;
+        if ((num_mc & (num_mc - 1)) == 0) {
+          tmp_rid = I->second->m_addr >> m_bid_shift >> m_rid_shift;
+        }
+        else {
+          tmp_rid = ((I->second->m_addr >> m_bid_shift) / num_mc) >> m_rid_shift;
+        }
+        ssg_req_list[ii*m_num_rows+tmp_rid%m_num_rows].m_row_addr = tmp_rid;
+        ssg_req_list[ii*m_num_rows+tmp_rid%m_num_rows].m_dirty = 
+                                                         I->second->m_dirty;
+        m_ssd_buffer[ii].erase(I);
+      }
     }
   }
-  on_run_a_cycle();
-
-  ++m_cycle;
 }
 
 dc_ssg_c::~dc_ssg_c() {
