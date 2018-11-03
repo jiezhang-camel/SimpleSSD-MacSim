@@ -884,4 +884,6 @@ dc_ssg_c::dc_ssg_c(macsim_c *simBase) : dc_frfcfs_c(simBase) {
   }
 }
 
-dc_ssg_c::~dc_ssg_c() {}
+dc_ssg_c::~dc_ssg_c() {
+  delete[] ssg_req_list;
+}
