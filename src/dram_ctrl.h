@@ -320,4 +320,20 @@ class dc_frfcfs_c : public dram_ctrl_c {
   class sort_func *m_sort; /**< sort function */
 };
 
+///////////////////////////////////////////////////////////////////////////////////////////////
+/// \brief SSG dram scheduling
+///////////////////////////////////////////////////////////////////////////////////////////////
+class dc_ssg_c : public dc_frfcfs_c {
+ public:
+  /**
+   * Constructor
+   */
+  dc_ssg_c(macsim_c *simBase);
+
+  /**
+   * Destructor
+   */
+  ~dc_ssg_c();
+};
+
 #endif

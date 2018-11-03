@@ -69,6 +69,11 @@ dram_c *frfcfs_controller(macsim_c *simBase) {
   return frfcfs;
 }
 
+dram_c *ssg_controller(macsim_c *simBase) {
+  dram_c *ssg = new dc_ssg_c(simBase);
+  return ssg;
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////
 
 int dram_ctrl_c::dram_req_priority[DRAM_REQ_PRIORITY_COUNT] = {
@@ -869,3 +874,9 @@ drb_entry_s *dc_frfcfs_c::schedule(list<drb_entry_s *> *buffer) {
 
   return buffer->front();
 }
+
+dc_ssg_c::dc_ssg_c(macsim_c *simBase) : dc_frfcfs_c(simBase) {
+  //m_sort = new sort_func(this);
+}
+
+dc_ssg_c::~dc_ssg_c() {}
