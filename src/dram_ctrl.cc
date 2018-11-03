@@ -942,7 +942,6 @@ void dc_ssg_c::receive(void) {
           }
           m_ssd_buffer[bid].insert(pair<unsigned long long, mem_req_s *>(
             tmp_time, req));
-          cout<< "push in ssd_buffer: " << req->m_addr << " R/W: " << req->m_dirty << " current time " << m_cycle << " ready time " << tmp_time << " MC: " << m_id << " Bank: " << bid << " Row: " << rid << endl;
           break;
         }
       }
@@ -958,7 +957,6 @@ void dc_ssg_c::receive(void) {
         }        
         m_ssd_buffer[bid].insert(pair<unsigned long long, mem_req_s *>(
           latest_cycle, req));  
-        cout<< "push in ssd_buffer: " << req->m_addr << " R/W: " << req->m_dirty << " current time " << m_cycle << " ready time " << latest_cycle << " MC: " << m_id << " Bank: " << bid << " Row: " << rid << endl;    
       }
       NETWORK->receive_pop(MEM_MC, m_id);
       if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
@@ -967,7 +965,6 @@ void dc_ssg_c::receive(void) {
     }
     else{
       if (req && insert_new_req(req)) {
-        cout<< "serve in dram_buffer: " << req->m_addr << " current time " << m_cycle << endl;
         NETWORK->receive_pop(MEM_MC, m_id);
         if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
           m_simBase->m_bug_detector->deallocate_noc(req);
@@ -994,7 +991,6 @@ void dc_ssg_c::receive(void) {
         ssg_req_list[ii*m_num_rows+tmp_rid%m_num_rows].m_row_addr = tmp_rid;
         ssg_req_list[ii*m_num_rows+tmp_rid%m_num_rows].m_dirty = 
                                                          I->second->m_dirty;
-        cout<< "pop from ssd_buffer: " << I->second->m_addr << " current time " << m_cycle << endl; 
         m_ssd_buffer[ii].erase(I);
       }
     }
