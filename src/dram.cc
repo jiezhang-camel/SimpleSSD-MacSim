@@ -81,9 +81,10 @@ unsigned long long ssd_interface_c::insert_ssd_req(unsigned long long start_time
 
   request.reqID = m_id;
   request.offset = m_addr % logicalPageSize;
-  request.length = logicalPageSize;
+  request.length = 128;
   request.range.slpn = m_addr / logicalPageSize;
-  request.range.nlp = 1;
+  request.range.nlp = (128 + request.offset + logicalPageSize - 1) /
+                      logicalPageSize;
 
   uint64_t finishTick =
       static_cast<uint64_t>(start_time * 1000 / clock_freq);
