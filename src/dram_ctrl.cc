@@ -888,7 +888,6 @@ dc_ssg_c::dc_ssg_c(macsim_c *simBase) : dc_frfcfs_c(simBase) {
     ssg_req_list[ii].m_dirty = false;
   }
   m_ssd_buffer = new map<unsigned long long, mem_req_s *>[m_num_bank];
-  latest_cycle = 0;
   ssd_req_id = 0;
 
   SimpleSSD::Logger::initLogSystem(std::cout, std::cerr, [this]() -> uint64_t {
@@ -1042,8 +1041,8 @@ unsigned long long dc_ssg_c::insert_ssd_req(unsigned long long start_time,
   request.range.slpn = m_addr / logicalPageSize;
   request.range.nlp = 1;
 
-  unsigned long long finishTick =
-      static_cast<unsigned long long>(start_time * 1000 / clock_freq);
+  uint64_t finishTick =
+      static_cast<uint64_t>(start_time * 1000 / clock_freq);
 
   SimpleSSD::Logger::info("Request arrived at %d cycle (%" PRIu64 " ps)",
                           start_time, finishTick);
@@ -1055,7 +1054,7 @@ unsigned long long dc_ssg_c::insert_ssd_req(unsigned long long start_time,
 
   finishTick = finishTick / 1000 * clock_freq;
   SimpleSSD::Logger::info("Request finished at %d cycle", finishTick);  
-  return finishTick;
+  return static_cast<unsigned long long>(finishTick);
 }
 
 dc_ssg_c::~dc_ssg_c() {
