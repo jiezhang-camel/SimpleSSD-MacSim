@@ -39,6 +39,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define DRAM_H
 
 #include "macsim.h"
+#include "global_defs.h"
+#include "global_types.h"
+#include "simplessd/hil/hil.hh"
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
 /// \brief Memory controller base class
@@ -70,6 +73,8 @@ class dram_c {
    */
   virtual void run_a_cycle(bool) = 0;
 
+  class ssd_interface_c *m_ssd;
+  
  protected:
   /**
    * Send a packet to NOC
@@ -100,5 +105,34 @@ dram_c *ssg_controller(macsim_c *simBase);
 #ifdef USING_SST
 dram_c *vaultsim_controller(macsim_c *simBase);
 #endif
+
+class ssd_interface_c {
+ public:
+  /**
+   * Constructor
+   */
+  ssd_interface_c(macsim_c *simBase);
+
+  /**
+   * Destructor
+   */
+  ~ssd_interface_c();
+  //void init(int id);
+  //void run_a_cycle(bool);
+  //void send(void);
+  //void receive(void);
+  //void print_req(void);
+  //bool insert_new_req(mem_req_s *);
+  unsigned long long insert_ssd_req(unsigned long long start_time, 
+                        int m_id, Addr m_addr, bool rw);
+  int ssd_req_id;
+  float clock_freq;
+  Counter m_cycle;
+ private:
+  SimpleSSD::ConfigReader configReader;
+  SimpleSSD::HIL::HIL *pHIL;
+  uint64_t totalLogicalPages;
+  uint32_t logicalPageSize;
+};
 
 #endif

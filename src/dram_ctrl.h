@@ -149,7 +149,6 @@ class dram_ctrl_c : public dram_c {
   static int
       dram_req_priority[DRAM_REQ_PRIORITY_COUNT];  /**< dram request priority */
   static const char *dram_state[DRAM_STATE_COUNT]; /**< dram state string */
-
  protected:
   /**
    * Schedule each bank.
@@ -347,25 +346,6 @@ class dc_ssg_c : public dc_frfcfs_c {
   };
   struct _ssg_req_s *ssg_req_list; 
   map<unsigned long long, mem_req_s *> *m_ssd_buffer;
-  int ssd_req_id;
-
- public:
-  //void init(int id);
-  //void run_a_cycle(bool);
-  //void send(void);
-  //void receive(void);
-  //void print_req(void);
-  //bool insert_new_req(mem_req_s *);
-  unsigned long long insert_ssd_req(unsigned long long start_time, 
-                        int m_id, Addr m_addr, bool rw);
-
- private:
-  SimpleSSD::ConfigReader configReader;
-  SimpleSSD::HIL::HIL *pHIL;
-  uint64_t totalLogicalPages;
-  uint32_t logicalPageSize;
-
-  float clock_freq;
 };
 
 #endif

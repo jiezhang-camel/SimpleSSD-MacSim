@@ -888,23 +888,6 @@ dc_ssg_c::dc_ssg_c(macsim_c *simBase) : dc_frfcfs_c(simBase) {
     ssg_req_list[ii].m_dirty = false;
   }
   m_ssd_buffer = new map<unsigned long long, mem_req_s *>[m_num_bank];
-  ssd_req_id = 0;
-
-  SimpleSSD::Logger::initLogSystem(std::cout, std::cerr, [this]() -> uint64_t {
-    return m_cycle * 1000 / clock_freq;
-  });
-
-  if (!configReader.init((string)*m_simBase->m_knobs->KNOB_SIMPLESSD_CONFIG)) {
-    printf("Failed to read SimpleSSD configuration file!\n");
-
-    terminate();
-  }
-
-  clock_freq = *m_simBase->m_knobs->KNOB_CLOCK_MC;
-
-  pHIL = new SimpleSSD::HIL::HIL(&configReader);
-
-  pHIL->getLPNInfo(totalLogicalPages, logicalPageSize);
 }
 
 void dc_ssg_c::receive(void) {
@@ -967,20 +950,21 @@ void dc_ssg_c::receive(void) {
       }
       if (!is_hit){
         unsigned long long tmp_time;
+        m_ssd->m_cycle = m_cycle;
         if (ssg_req_list[bid*m_num_rows+rid%m_num_rows].m_dirty == false){
-          tmp_time = insert_ssd_req(m_cycle, ssd_req_id, 
+          tmp_time = m_ssd->insert_ssd_req(m_cycle, m_ssd->ssd_req_id, 
                                     req->m_addr, req->m_dirty);
-          ssd_req_id++;
+          m_ssd->ssd_req_id++;
         }
         else{
-          tmp_time = insert_ssd_req(m_cycle, ssd_req_id,
+          tmp_time = m_ssd->insert_ssd_req(m_cycle, m_ssd->ssd_req_id,
               (ssg_req_list[bid*m_num_rows+rid%m_num_rows].m_row_addr
                                         << m_rid_shift + bid ) << m_bid_shift, 
               ssg_req_list[bid*m_num_rows+rid%m_num_rows].m_dirty);
-          ssd_req_id++;
-          tmp_time = insert_ssd_req(tmp_time, ssd_req_id, 
-                                      req->m_addr, req->m_dirty);
-          ssd_req_id++;
+          m_ssd->ssd_req_id++;
+          tmp_time = tmp_time - m_cycle + m_ssd->insert_ssd_req(m_cycle,  
+                                m_ssd->ssd_req_id, req->m_addr, req->m_dirty);
+          m_ssd->ssd_req_id++;
         }
         while (1){
           auto iter = m_ssd_buffer[bid].find(tmp_time);
@@ -1031,34 +1015,7 @@ void dc_ssg_c::receive(void) {
   }  
 }
 
-unsigned long long dc_ssg_c::insert_ssd_req(unsigned long long start_time, 
-                        int m_id, Addr m_addr, bool rw){
-  SimpleSSD::ICL::Request request;
-
-  request.reqID = m_id;
-  request.offset = m_addr % logicalPageSize;
-  request.length = logicalPageSize;
-  request.range.slpn = m_addr / logicalPageSize;
-  request.range.nlp = 1;
-
-  uint64_t finishTick =
-      static_cast<uint64_t>(start_time * 1000 / clock_freq);
-
-  SimpleSSD::Logger::info("Request arrived at %d cycle (%" PRIu64 " ps)",
-                          start_time, finishTick);
-
-  if (rw)
-    pHIL->write(request, finishTick);
-  else
-    pHIL->read(request, finishTick);
-
-  finishTick = finishTick / 1000 * clock_freq;
-  SimpleSSD::Logger::info("Request finished at %d cycle", finishTick);  
-  return static_cast<unsigned long long>(finishTick);
-}
-
 dc_ssg_c::~dc_ssg_c() {
   delete[] ssg_req_list;
   delete[] m_ssd_buffer;
-  delete pHIL;
 }

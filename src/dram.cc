@@ -36,7 +36,67 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************************************/
 
 #include "dram.h"
+#include "all_knobs.h"
+#include "statistics.h"
+
+#include <cstdio>
+#include "simplessd_interface.h"
+
+#include "simplessd/log/log.hh"
 
 dram_c::dram_c(macsim_c *simBase) : m_simBase(simBase) {}
 
 dram_c::~dram_c() {}
+
+
+ssd_interface_c::ssd_interface_c(macsim_c *simBase) {
+  ssd_req_id = 0;
+  m_cycle = 0;
+
+  SimpleSSD::Logger::initLogSystem(std::cout, std::cerr, [this]() -> uint64_t {
+    return m_cycle * 1000 / clock_freq;
+  });
+
+  if (!configReader.init((string)*simBase->m_knobs->KNOB_SIMPLESSD_CONFIG)) {
+    printf("Failed to read SimpleSSD configuration file!\n");
+
+    terminate();
+  }
+
+  clock_freq = *simBase->m_knobs->KNOB_CLOCK_MC;
+
+  pHIL = new SimpleSSD::HIL::HIL(&configReader);
+
+  pHIL->getLPNInfo(totalLogicalPages, logicalPageSize);
+}
+
+ssd_interface_c::~ssd_interface_c() {
+  delete pHIL;
+}
+
+
+unsigned long long ssd_interface_c::insert_ssd_req(unsigned long long start_time, 
+                        int m_id, Addr m_addr, bool rw){
+  SimpleSSD::ICL::Request request;
+
+  request.reqID = m_id;
+  request.offset = m_addr % logicalPageSize;
+  request.length = logicalPageSize;
+  request.range.slpn = m_addr / logicalPageSize;
+  request.range.nlp = 1;
+
+  uint64_t finishTick =
+      static_cast<uint64_t>(start_time * 1000 / clock_freq);
+
+  SimpleSSD::Logger::info("Request arrived at %d cycle (%" PRIu64 " ps)",
+                          start_time, finishTick);
+
+  if (rw)
+    pHIL->write(request, finishTick);
+  else
+    pHIL->read(request, finishTick);
+
+  finishTick = finishTick / 1000 * clock_freq;
+  SimpleSSD::Logger::info("Request finished at %d cycle", finishTick);  
+  return static_cast<unsigned long long>(finishTick);
+}
