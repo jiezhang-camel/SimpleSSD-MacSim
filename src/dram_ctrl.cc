@@ -889,6 +889,7 @@ dc_ssg_c::dc_ssg_c(macsim_c *simBase) : dc_frfcfs_c(simBase) {
   }
   m_ssd_buffer = new map<unsigned long long, mem_req_s *>[m_num_bank];
   latest_cycle = 0;
+  ssd_req_id = 0;
 
   SimpleSSD::Logger::initLogSystem(std::cout, std::cerr, [this]() -> uint64_t {
     return m_cycle * 1000 / clock_freq;
@@ -966,17 +967,29 @@ void dc_ssg_c::receive(void) {
         }
       }
       if (!is_hit){
-        if (latest_cycle < m_cycle) latest_cycle = m_cycle;
-        if (ssg_req_list[bid*m_num_rows+rid%m_num_rows].m_dirty == false)
-          latest_cycle += SSD_read_delay;
-        else latest_cycle += SSD_read_delay + SSD_write_delay;
+        unsigned long long tmp_time;
+        if (ssg_req_list[bid*m_num_rows+rid%m_num_rows].m_dirty == false){
+          tmp_time = insert_ssd_req(m_cycle, ssd_req_id, 
+                                    req->m_addr, req->m_dirty);
+          ssd_req_id++;
+        }
+        else{
+          tmp_time = insert_ssd_req(m_cycle, ssd_req_id,
+              (ssg_req_list[bid*m_num_rows+rid%m_num_rows].m_row_addr
+                                        << m_rid_shift + bid ) << m_bid_shift, 
+              ssg_req_list[bid*m_num_rows+rid%m_num_rows].m_dirty);
+          ssd_req_id++;
+          tmp_time = insert_ssd_req(tmp_time, ssd_req_id, 
+                                      req->m_addr, req->m_dirty);
+          ssd_req_id++;
+        }
         while (1){
-          auto iter = m_ssd_buffer[bid].find(latest_cycle);
-          if (iter != m_ssd_buffer[bid].end()) latest_cycle++;
+          auto iter = m_ssd_buffer[bid].find(tmp_time);
+          if (iter != m_ssd_buffer[bid].end()) tmp_time++;
           else break;
         }        
         m_ssd_buffer[bid].insert(pair<unsigned long long, mem_req_s *>(
-          latest_cycle, req));  
+          tmp_time, req));  
       }
       NETWORK->receive_pop(MEM_MC, m_id);
       if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
@@ -985,6 +998,8 @@ void dc_ssg_c::receive(void) {
     }
     else{
       if (req && insert_new_req(req)) {
+        if (req->m_dirty)
+          ssg_req_list[bid*m_num_rows+rid%m_num_rows].m_dirty = true;
         NETWORK->receive_pop(MEM_MC, m_id);
         if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
           m_simBase->m_bug_detector->deallocate_noc(req);
@@ -1015,6 +1030,32 @@ void dc_ssg_c::receive(void) {
       }
     }
   }  
+}
+
+unsigned long long dc_ssg_c::insert_ssd_req(unsigned long long start_time, 
+                        int m_id, Addr m_addr, bool rw){
+  SimpleSSD::ICL::Request request;
+
+  request.reqID = m_id;
+  request.offset = m_addr % logicalPageSize;
+  request.length = logicalPageSize;
+  request.range.slpn = m_addr / logicalPageSize;
+  request.range.nlp = 1;
+
+  unsigned long long finishTick =
+      static_cast<unsigned long long>(start_time * 1000 / clock_freq);
+
+  SimpleSSD::Logger::info("Request arrived at %d cycle (%" PRIu64 " ps)",
+                          start_time, finishTick);
+
+  if (rw)
+    pHIL->write(request, finishTick);
+  else
+    pHIL->read(request, finishTick);
+
+  finishTick = finishTick / 1000 * clock_freq;
+  SimpleSSD::Logger::info("Request finished at %d cycle", finishTick);  
+  return finishTick;
 }
 
 dc_ssg_c::~dc_ssg_c() {
