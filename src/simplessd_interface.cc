@@ -127,7 +127,6 @@ void simplessd_interface_c::receive(void) {
 
 bool simplessd_interface_c::insert_new_req(mem_req_s *mem_req) {
   SimpleSSD::ICL::Request request;
-
   request.reqID = mem_req->m_id;
   request.offset = mem_req->m_addr % logicalPageSize;
   request.length = mem_req->m_size;

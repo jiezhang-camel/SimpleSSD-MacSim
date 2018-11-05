@@ -236,13 +236,20 @@ void macsim_c::init_memory(void) {
   // dram controller
   m_num_mc = m_simBase->m_knobs->KNOB_DRAM_NUM_MC->getValue();
   m_dram_controller = new dram_c *[m_num_mc];
-  ssd_interface_c * m_ssd = new ssd_interface_c(m_simBase);
+  
   for (int ii = 0; ii < m_num_mc; ++ii) {
     m_dram_controller[ii] = dram_factory_c::get()->allocate(
         m_simBase->m_knobs->KNOB_DRAM_SCHEDULING_POLICY->getValue(), m_simBase);
     m_dram_controller[ii]->init(ii);
-    m_dram_controller[ii]->m_ssd = m_ssd;
+    
   }
+  if (m_simBase->m_knobs->KNOB_DRAM_SCHEDULING_POLICY->getValue() == "SSG"){
+    ssd_interface_c * m_ssd = new ssd_interface_c(m_simBase);
+    for (int ii = 0; ii < m_num_mc; ++ii) {
+      m_dram_controller[ii]->m_ssd = m_ssd;
+    }
+  }
+
 
   // initialize memory
   m_memory->init();
