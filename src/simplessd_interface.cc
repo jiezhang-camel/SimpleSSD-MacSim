@@ -38,6 +38,7 @@ simplessd_interface_c::simplessd_interface_c(macsim_c *simBase)
   clock_freq = *m_simBase->m_knobs->KNOB_CLOCK_MC;
 
   pHIL = new SimpleSSD::HIL::HIL(&configReader);
+  m_input_buffer = new map<unsigned long long, queue<mem_req_s *>>;
   m_output_buffer = new map<unsigned long long, mem_req_s *>;
 
   pHIL->getLPNInfo(totalLogicalPages, logicalPageSize);
@@ -46,6 +47,7 @@ simplessd_interface_c::simplessd_interface_c(macsim_c *simBase)
 simplessd_interface_c::~simplessd_interface_c() {
   delete pHIL;
   delete m_output_buffer;
+  delete m_input_buffer;
 }
 
 void simplessd_interface_c::init(int id) {
@@ -112,20 +114,89 @@ void simplessd_interface_c::send(void) {
 void simplessd_interface_c::receive(void) {
   // check router queue every cycle
   mem_req_s *req = NETWORK->receive(MEM_MC, m_id);
-  if (!req)
-    return;
-
-  if (req && insert_new_req(req)) {
-    NETWORK->receive_pop(MEM_MC, m_id);
-    if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
-      m_simBase->m_bug_detector->deallocate_noc(req);
+  if (req){
+    // check if req has same slot in the input buffer
+    bool input_buffer_hit = false;
+    bool output_buffer_hit = false;
+    for (auto I = m_input_buffer->begin(), E = m_input_buffer->end();
+          I != E; I++){
+      if ((I->second).front()->m_addr / logicalPageSize 
+                                  == req->m_addr / logicalPageSize){
+        input_buffer_hit = true;
+        (I->second).push(req);
+        NETWORK->receive_pop(MEM_MC, m_id);
+        if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
+          m_simBase->m_bug_detector->deallocate_noc(req);
+        }
+        m_simBase->m_progress_checker->increment_outstanding_requests();
+        break;
+      }
     }
+    if (input_buffer_hit == false){
+      for (auto I = m_output_buffer->begin(), E = m_output_buffer->end();
+            I != E; I++){
+        if (I->second->m_addr / logicalPageSize 
+                                  == req->m_addr / logicalPageSize){
+          unsigned long long tmp_time = I->first+1;
+          while (1){
+            auto iter = m_input_buffer->find(tmp_time);
+            if (iter != m_input_buffer->end()) tmp_time++;
+            else break;
+          }
+          queue<mem_req_s *> tmp_queue;
+          tmp_queue.push(req);
+          m_input_buffer->insert( pair<unsigned long long, queue<mem_req_s *>>(
+                tmp_time, tmp_queue));
+          output_buffer_hit = true;
+          NETWORK->receive_pop(MEM_MC, m_id);
+          if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
+            m_simBase->m_bug_detector->deallocate_noc(req);
+          }
+          m_simBase->m_progress_checker->increment_outstanding_requests();
+          break;
+        }
+      }    
+    }
+    if (input_buffer_hit == false && output_buffer_hit == false){
+      unsigned long long finishTime;
+      if (req && insert_new_req(finishTime,req)) {
+        NETWORK->receive_pop(MEM_MC, m_id);
+        if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
+          m_simBase->m_bug_detector->deallocate_noc(req);
+        }
+        m_simBase->m_progress_checker->increment_outstanding_requests();
+      }
+    }    
+  }
 
-    m_simBase->m_progress_checker->increment_outstanding_requests();
+  auto I = m_input_buffer->begin();
+  auto E = m_input_buffer->end();
+  if ((I != E) && (I->first <= m_cycle)){
+    unsigned long long finishTime;
+    insert_new_req(finishTime,(I->second).front());
+    finishTime++;
+    if((I->second).size() == 1) m_input_buffer->erase(I);
+    else{
+      (I->second).pop();
+      while (1){
+        auto iter = m_input_buffer->find(finishTime);
+        if (iter != m_input_buffer->end())finishTime++;
+        else break;
+      }
+      queue<mem_req_s *> tmp_queue;
+      while (!(I->second).empty()){
+        tmp_queue.push((I->second).front());
+        (I->second).pop();
+      }
+      m_input_buffer->erase(I);
+      m_input_buffer->insert( pair<unsigned long long, queue<mem_req_s *>>(
+            finishTime, tmp_queue));      
+    }
   }
 }
 
-bool simplessd_interface_c::insert_new_req(mem_req_s *mem_req) {
+bool simplessd_interface_c::insert_new_req(unsigned long long &finishTime, 
+                                             mem_req_s *mem_req) {
   SimpleSSD::ICL::Request request;
   request.reqID = mem_req->m_id;
   request.offset = mem_req->m_addr % logicalPageSize;
@@ -147,10 +218,14 @@ bool simplessd_interface_c::insert_new_req(mem_req_s *mem_req) {
 
   finishTick = finishTick / 1000 * clock_freq;
   SimpleSSD::Logger::info("Request finished at %d cycle", finishTick);
-
+  while (1){
+    auto iter = m_output_buffer->find(finishTick);
+    if (iter != m_output_buffer->end()) finishTick++;
+    else break;
+  }
   m_output_buffer->insert(pair<unsigned long long, mem_req_s *>(
       static_cast<unsigned long long>(finishTick), mem_req));
-
+  finishTime = static_cast<unsigned long long>(finishTick);
   return true;
 }
 

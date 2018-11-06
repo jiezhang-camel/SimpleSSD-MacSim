@@ -26,7 +26,7 @@ class simplessd_interface_c : public dram_c {
   void send(void);
   void receive(void);
   void print_req(void);
-  bool insert_new_req(mem_req_s *);
+  bool insert_new_req(unsigned long long &, mem_req_s *);
 
  private:
   SimpleSSD::ConfigReader configReader;
@@ -35,6 +35,7 @@ class simplessd_interface_c : public dram_c {
   uint32_t logicalPageSize;
 
   float clock_freq;
+  map<unsigned long long, queue<mem_req_s *>> *m_input_buffer;
   map<unsigned long long, mem_req_s *> *m_output_buffer;
 };
 
