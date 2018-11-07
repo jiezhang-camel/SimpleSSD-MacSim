@@ -204,7 +204,7 @@ bool simplessd_interface_c::insert_new_req(unsigned long long &finishTime,
   request.range.slpn = mem_req->m_addr / logicalPageSize;
   request.range.nlp = (mem_req->m_size + request.offset + logicalPageSize - 1) /
                       logicalPageSize;
-
+                      
   uint64_t finishTick =
       static_cast<unsigned long long>(m_cycle * 1000 / clock_freq);
 
