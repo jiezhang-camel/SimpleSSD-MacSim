@@ -348,4 +348,33 @@ class dc_ssg_c : public dc_frfcfs_c {
   map<unsigned long long, mem_req_s *> *m_ssd_buffer;
 };
 
+///////////////////////////////////////////////////////////////////////////////////////////////
+/// \brief HETERO dram scheduling
+///////////////////////////////////////////////////////////////////////////////////////////////
+class dc_hetero_c : public dc_frfcfs_c {
+ public:
+  /**
+   * Constructor
+   */
+  dc_hetero_c(macsim_c *simBase);
+
+  /**
+   * Destructor
+   */
+  ~dc_hetero_c();
+  /**
+   * Receive a packet from the NoC
+   */
+  void receive(void);
+  int ssd_available_cycle; 
+  int m_num_rows;  
+  struct _dram_req_s{
+    Addr m_row_addr;
+    bool m_dirty;
+  };           
+  struct _dram_req_s *dram_req_list;
+  mem_req_s * m_ssd_req;
+  bool ssd_inuse;
+};
+
 #endif

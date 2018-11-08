@@ -174,6 +174,7 @@ void macsim_c::register_functions(void) {
   dram_factory_c::get()->register_class("FRFCFS", frfcfs_controller);
   dram_factory_c::get()->register_class("FCFS", fcfs_controller);
   dram_factory_c::get()->register_class("SSG", ssg_controller);
+  dram_factory_c::get()->register_class("HETERO", hetero_controller);
 #ifdef RAMULATOR
   dram_factory_c::get()->register_class("RAMULATOR", ramulator_controller);
 #endif
@@ -243,7 +244,8 @@ void macsim_c::init_memory(void) {
     m_dram_controller[ii]->init(ii);
     
   }
-  if (m_simBase->m_knobs->KNOB_DRAM_SCHEDULING_POLICY->getValue() == "SSG"){
+  if (m_simBase->m_knobs->KNOB_DRAM_SCHEDULING_POLICY->getValue() == "SSG" ||
+      m_simBase->m_knobs->KNOB_DRAM_SCHEDULING_POLICY->getValue() == "HETERO" ){
     ssd_interface_c * m_ssd = new ssd_interface_c(m_simBase);
     for (int ii = 0; ii < m_num_mc; ++ii) {
       m_dram_controller[ii]->m_ssd = m_ssd;

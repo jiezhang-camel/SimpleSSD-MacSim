@@ -74,7 +74,7 @@ class dram_c {
   virtual void run_a_cycle(bool) = 0;
 
   class ssd_interface_c *m_ssd;
-  
+
  protected:
   /**
    * Send a packet to NOC
@@ -102,6 +102,7 @@ dram_c *dramsim_controller(macsim_c *simBase);
 dram_c *ramulator_controller(macsim_c *simBase);
 dram_c *simplessd_interface(macsim_c *simBase);
 dram_c *ssg_controller(macsim_c *simBase);
+dram_c *hetero_controller(macsim_c *simBase);
 #ifdef USING_SST
 dram_c *vaultsim_controller(macsim_c *simBase);
 #endif

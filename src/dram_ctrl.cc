@@ -80,6 +80,11 @@ dram_c *ssg_controller(macsim_c *simBase) {
   return ssg;
 }
 
+dram_c *hetero_controller(macsim_c *simBase) {
+  dram_c *hetero = new dc_hetero_c(simBase);
+  return hetero;
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////
 
 int dram_ctrl_c::dram_req_priority[DRAM_REQ_PRIORITY_COUNT] = {
@@ -1018,4 +1023,121 @@ void dc_ssg_c::receive(void) {
 dc_ssg_c::~dc_ssg_c() {
   delete[] ssg_req_list;
   delete[] m_ssd_buffer;
+}
+
+dc_hetero_c::dc_hetero_c(macsim_c *simBase) : dc_frfcfs_c(simBase) {
+  ssd_available_cycle = 0;
+  m_num_rows = *KNOB(KNOB_DRAM_NUM_ROWS);
+  dram_req_list = new struct _dram_req_s[m_num_rows * m_num_bank];
+  for (int ii = 0; ii < m_num_rows * m_num_bank; ii++ ){
+    dram_req_list[ii].m_row_addr = ULLONG_MAX;
+    dram_req_list[ii].m_dirty = false;
+  }
+  ssd_inuse = false;
+}
+
+void dc_hetero_c::receive(void) {
+  int num_mc = *m_simBase->m_knobs->KNOB_DRAM_NUM_MC;
+  if (ssd_available_cycle <= m_cycle && ssd_inuse== true){
+    insert_new_req(m_ssd_req);
+    Addr addr = m_ssd_req->m_addr;
+    Addr bid_xor;
+    Addr cid;
+    Addr bid;
+    Addr rid;
+    if ((num_mc & (num_mc - 1)) == 0) {  // if num_mc is a power of 2
+      bid_xor = (addr >> m_bid_xor_shift) & m_bid_mask;
+      cid = addr & m_cid_mask;
+      addr = addr >> m_bid_shift;
+      bid = addr & m_bid_mask;
+      addr = addr >> m_rid_shift;
+      rid = addr;
+    }
+    else {
+      bid_xor = (addr >> m_bid_xor_shift) & m_bid_mask;
+      cid = addr & m_cid_mask;
+      addr = (addr >> m_bid_shift) / num_mc;
+    
+      bid = addr & m_bid_mask;
+      addr = addr >> m_rid_shift;
+      rid = addr;
+    }
+    // Permutation-based Interleaving
+    if (*KNOB(KNOB_DRAM_BANK_XOR_INDEX)) {
+      bid = bid ^ bid_xor;
+    }
+    dram_req_list[bid*m_num_rows+rid%m_num_rows].m_dirty 
+                                            = m_ssd_req->m_dirty;
+    dram_req_list[bid*m_num_rows+rid%m_num_rows].m_row_addr = rid;
+    ssd_inuse = false;
+  }
+
+  if (ssd_available_cycle > m_cycle)
+    return;
+  // check router queue every cycle
+  mem_req_s *req = NETWORK->receive(MEM_MC, m_id);
+  if (!req)
+    return;
+  // address parsing
+  Addr addr = req->m_addr;
+  Addr bid_xor;
+  Addr cid;
+  Addr bid;
+  Addr rid;
+  if ((num_mc & (num_mc - 1)) == 0) {  // if num_mc is a power of 2
+    bid_xor = (addr >> m_bid_xor_shift) & m_bid_mask;
+    cid = addr & m_cid_mask;
+    addr = addr >> m_bid_shift;
+    bid = addr & m_bid_mask;
+    addr = addr >> m_rid_shift;
+    rid = addr;
+  }
+  else {
+    bid_xor = (addr >> m_bid_xor_shift) & m_bid_mask;
+    cid = addr & m_cid_mask;
+    addr = (addr >> m_bid_shift) / num_mc;
+  
+    bid = addr & m_bid_mask;
+    addr = addr >> m_rid_shift;
+    rid = addr;
+  }
+  // Permutation-based Interleaving
+  if (*KNOB(KNOB_DRAM_BANK_XOR_INDEX)) {
+    bid = bid ^ bid_xor;
+  }
+  if (dram_req_list[bid*m_num_rows+rid%m_num_rows].m_row_addr != rid){
+    unsigned long long tmp_time;
+    m_ssd->m_cycle = m_cycle;
+    if (dram_req_list[bid*m_num_rows+rid%m_num_rows].m_dirty == false){
+      tmp_time = m_ssd->insert_ssd_req(m_cycle, m_ssd->ssd_req_id, 
+                                req->m_addr, req->m_dirty);
+      m_ssd->ssd_req_id++;
+    }
+    else{
+      tmp_time = m_ssd->insert_ssd_req(m_cycle, m_ssd->ssd_req_id,
+          (dram_req_list[bid*m_num_rows+rid%m_num_rows].m_row_addr
+                                    << m_rid_shift + bid ) << m_bid_shift, 
+          dram_req_list[bid*m_num_rows+rid%m_num_rows].m_dirty);
+      m_ssd->ssd_req_id++;
+      tmp_time = tmp_time - m_cycle + m_ssd->insert_ssd_req(m_cycle,  
+                            m_ssd->ssd_req_id, req->m_addr, req->m_dirty);
+      m_ssd->ssd_req_id++;
+    }
+    ssd_available_cycle = tmp_time;
+    m_ssd_req = req;
+    ssd_inuse = true;
+  }
+  else {
+    if (req && insert_new_req(req)) {
+      if (req->m_dirty)
+        dram_req_list[bid*m_num_rows+rid%m_num_rows].m_dirty = true;
+    }     
+  }
+  NETWORK->receive_pop(MEM_MC, m_id);
+  if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
+    m_simBase->m_bug_detector->deallocate_noc(req);
+  }
+}
+
+dc_hetero_c::~dc_hetero_c() {
 }
