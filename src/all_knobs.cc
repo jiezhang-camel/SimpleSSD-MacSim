@@ -331,7 +331,7 @@ all_knobs_c::all_knobs_c() {
 	KNOB_DRAM_SCHEDULING_POLICY = new KnobTemplate< string > ("dram_scheduling_policy", "FRFCFS");
 	KNOB_DRAM_NUM_CHANNEL = new KnobTemplate< int > ("dram_num_channel", 1);
 	KNOB_DRAM_NUM_BANKS = new KnobTemplate< int > ("dram_num_banks", 8);
-	KNOB_DRAM_NUM_ROWS = new KnobTemplate< int > ("dram_num_rows", 2048);
+	KNOB_DRAM_NUM_ROWS = new KnobTemplate< int > ("dram_num_rows", 4096);
 	KNOB_DRAM_ONE_CYCLE = new KnobTemplate< uns > ("dram_one_cycle", 10);
 	KNOB_DRAM_DDR_FACTOR = new KnobTemplate< uns > ("dram_ddr_factor", 2);
 	KNOB_DRAM_BUS_WIDTH = new KnobTemplate< uns > ("dram_bus_width", 8);
