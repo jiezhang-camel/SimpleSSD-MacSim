@@ -345,7 +345,7 @@ class dc_ssg_c : public dc_frfcfs_c {
     bool m_dirty;
   };
   struct _ssg_req_s *ssg_req_list; 
-  map<unsigned long long, mem_req_s *> *m_ssd_buffer;
+  map<unsigned long long, queue<mem_req_s *>> *m_ssd_buffer;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
