@@ -208,7 +208,7 @@ bool simplessd_interface_c::insert_new_req(unsigned long long &finishTime,
   uint64_t finishTick =
       static_cast<unsigned long long>(m_cycle * 1000 / clock_freq);
 
-  SimpleSSD::Logger::info("Request arrived at %d cycle (%" PRIu64 " ps)",
+  SimpleSSD::Logger::info("Request arrived at %lu cycle (%" PRIu64 " ps)",
                           m_cycle, finishTick);
 
   if (mem_req->m_dirty)
@@ -217,7 +217,7 @@ bool simplessd_interface_c::insert_new_req(unsigned long long &finishTime,
     pHIL->read(request, finishTick);
 
   finishTick = finishTick / 1000 * clock_freq;
-  SimpleSSD::Logger::info("Request finished at %d cycle", finishTick);
+  SimpleSSD::Logger::info("Request finished at %lu cycle", finishTick);
   while (1){
     auto iter = m_output_buffer->find(finishTick);
     if (iter != m_output_buffer->end()) finishTick++;
