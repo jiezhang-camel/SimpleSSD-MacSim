@@ -892,7 +892,7 @@ dc_ssg_c::dc_ssg_c(macsim_c *simBase) : dc_frfcfs_c(simBase) {
     ssg_req_list[ii].m_row_addr = ULLONG_MAX;
     ssg_req_list[ii].m_dirty = false;
   }
-  m_ssd_buffer = new map<unsigned long long, mem_req_s *>[m_num_bank];
+  m_ssd_buffer = new map<unsigned long long, queue<mem_req_s *>>[m_num_bank];
 }
 
 void dc_ssg_c::receive(void) {
@@ -935,21 +935,14 @@ void dc_ssg_c::receive(void) {
            I != E; I++){
         int tmp_rid;
         if ((num_mc & (num_mc - 1)) == 0) {
-          tmp_rid = I->second->m_addr >> m_bid_shift >> m_rid_shift;
+          tmp_rid = (I->second).front()->m_addr >> m_bid_shift >> m_rid_shift;
         }
         else {
-          tmp_rid = ((I->second->m_addr >> m_bid_shift) / num_mc) >> m_rid_shift;
+          tmp_rid = (((I->second).front()->m_addr >> m_bid_shift) / num_mc) >> m_rid_shift;
         }
-        if ( tmp_rid == rid){
+        if ( tmp_rid % m_num_rows == rid % m_num_rows){
           is_hit = true;
-          unsigned long long tmp_time = I->first+1;
-          while (1){
-            auto iter = m_ssd_buffer[bid].find(tmp_time);
-            if (iter != m_ssd_buffer[bid].end()) tmp_time++;
-            else break;
-          }
-          m_ssd_buffer[bid].insert(pair<unsigned long long, mem_req_s *>(
-            tmp_time, req));
+          (I->second).push(req);
           break;
         }
       }
@@ -975,9 +968,11 @@ void dc_ssg_c::receive(void) {
           auto iter = m_ssd_buffer[bid].find(tmp_time);
           if (iter != m_ssd_buffer[bid].end()) tmp_time++;
           else break;
-        }        
-        m_ssd_buffer[bid].insert(pair<unsigned long long, mem_req_s *>(
-          tmp_time, req));  
+        } 
+        queue<mem_req_s *> tmp_queue;
+        tmp_queue.push(req);    
+        m_ssd_buffer[bid].insert(pair<unsigned long long, queue<mem_req_s *>>(
+          tmp_time, tmp_queue));  
       }
       NETWORK->receive_pop(MEM_MC, m_id);
       if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
@@ -997,24 +992,75 @@ void dc_ssg_c::receive(void) {
   }
   // check if requests of m_ssd_buffer ready to insert
   for (auto ii = 0; ii < m_num_bank; ii++){
+    unsigned long long finishTime;
     auto I = m_ssd_buffer[ii].begin();
     auto E = m_ssd_buffer[ii].end();
     if (I != E){
       if (I->first >= m_cycle){
         continue;
       }
-      if (insert_new_req(I->second)) {
+      if (insert_new_req((I->second).front())) {
         int tmp_rid;
         if ((num_mc & (num_mc - 1)) == 0) {
-          tmp_rid = I->second->m_addr >> m_bid_shift >> m_rid_shift;
+          tmp_rid = (I->second).front()->m_addr >> m_bid_shift >> m_rid_shift;
         }
         else {
-          tmp_rid = ((I->second->m_addr >> m_bid_shift) / num_mc) >> m_rid_shift;
+          tmp_rid = (((I->second).front()->m_addr >> m_bid_shift) / num_mc) 
+                                                                >> m_rid_shift;
         }
         ssg_req_list[ii*m_num_rows+tmp_rid%m_num_rows].m_row_addr = tmp_rid;
         ssg_req_list[ii*m_num_rows+tmp_rid%m_num_rows].m_dirty = 
-                                                         I->second->m_dirty;
-        m_ssd_buffer[ii].erase(I);
+                                                  (I->second).front()->m_dirty;
+        if((I->second).size() == 1) m_ssd_buffer[ii].erase(I);
+        else{
+          (I->second).pop();
+          if ((num_mc & (num_mc - 1)) == 0) {
+            tmp_rid = (I->second).front()->m_addr >> m_bid_shift >> m_rid_shift;
+          }
+          else {
+            tmp_rid = (((I->second).front()->m_addr >> m_bid_shift) / num_mc) 
+                                                                  >> m_rid_shift;
+          }          
+          if (ssg_req_list[ii*m_num_rows+tmp_rid%m_num_rows].m_row_addr == tmp_rid){
+            ssg_req_list[ii*m_num_rows+tmp_rid%m_num_rows].m_dirty =
+                                                        (I->second).front()->m_dirty;
+            finishTime = m_cycle + 1;
+          }
+          else {
+            m_ssd->m_cycle = m_cycle;
+            if (ssg_req_list[ii*m_num_rows+tmp_rid%m_num_rows].m_dirty == false){
+              finishTime = m_ssd->insert_ssd_req(m_cycle, m_ssd->ssd_req_id, 
+                                              (I->second).front()->m_addr, 
+                                              (I->second).front()->m_dirty);
+              m_ssd->ssd_req_id++;
+            }
+            else{
+              finishTime = m_ssd->insert_ssd_req(m_cycle, m_ssd->ssd_req_id,
+                  (ssg_req_list[ii*m_num_rows+tmp_rid%m_num_rows].m_row_addr
+                                            << m_rid_shift + ii ) << m_bid_shift, 
+                  ssg_req_list[ii*m_num_rows+tmp_rid%m_num_rows].m_dirty);
+              m_ssd->ssd_req_id++;
+              finishTime = finishTime - m_cycle + m_ssd->insert_ssd_req(m_cycle,  
+                                    m_ssd->ssd_req_id, (I->second).front()->m_addr, 
+                                                       (I->second).front()->m_dirty);
+              m_ssd->ssd_req_id++;
+            }
+          }
+          while (1){
+            auto iter = m_ssd_buffer[ii].find(finishTime);
+            if (iter != m_ssd_buffer[ii].end()) finishTime++;
+            else break;
+          }
+          queue<mem_req_s *> tmp_queue;
+          while (!(I->second).empty()){
+            tmp_queue.push((I->second).front());
+            (I->second).pop();
+          }
+          m_ssd_buffer[ii].erase(I);
+          m_ssd_buffer[ii].insert( pair<unsigned long long, queue<mem_req_s *>>(
+            finishTime, tmp_queue));
+
+        }   
       }
     }
   }  
