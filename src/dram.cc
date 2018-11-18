@@ -89,8 +89,8 @@ unsigned long long ssd_interface_c::insert_ssd_req(unsigned long long start_time
   uint64_t finishTick =
       static_cast<uint64_t>(start_time * 1000 / clock_freq);
 
-  SimpleSSD::Logger::info("Request arrived at %d cycle (%" PRIu64 " ps)",
-                          start_time, finishTick);
+  SimpleSSD::Logger::info("Request %d arrived at %d cycle (%" PRIu64 " ps)",
+                          request.reqID, m_cycle, finishTick);
 
   if (rw)
     pHIL->write(request, finishTick);
@@ -98,6 +98,7 @@ unsigned long long ssd_interface_c::insert_ssd_req(unsigned long long start_time
     pHIL->read(request, finishTick);
 
   finishTick = finishTick / 1000 * clock_freq;
-  SimpleSSD::Logger::info("Request finished at %d cycle", finishTick);  
+  SimpleSSD::Logger::info("Request finished at %d cycle, delay %d cycle", 
+                                  finishTick, finishTick - m_cycle); 
   return static_cast<unsigned long long>(finishTick);
 }

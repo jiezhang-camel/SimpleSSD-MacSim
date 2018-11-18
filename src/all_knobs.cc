@@ -331,7 +331,7 @@ all_knobs_c::all_knobs_c() {
 	KNOB_DRAM_SCHEDULING_POLICY = new KnobTemplate< string > ("dram_scheduling_policy", "FRFCFS");
 	KNOB_DRAM_NUM_CHANNEL = new KnobTemplate< int > ("dram_num_channel", 1);
 	KNOB_DRAM_NUM_BANKS = new KnobTemplate< int > ("dram_num_banks", 8);
-	KNOB_DRAM_NUM_ROWS = new KnobTemplate< int > ("dram_num_rows", 4096);
+	KNOB_DRAM_NUM_ROWS = new KnobTemplate<int>("dram_num_rows", 512);
 	KNOB_DRAM_ONE_CYCLE = new KnobTemplate< uns > ("dram_one_cycle", 10);
 	KNOB_DRAM_DDR_FACTOR = new KnobTemplate< uns > ("dram_ddr_factor", 2);
 	KNOB_DRAM_BUS_WIDTH = new KnobTemplate< uns > ("dram_bus_width", 8);
@@ -856,7 +856,6 @@ all_knobs_c::~all_knobs_c() {
 	delete KNOB_DRAM_SCHEDULING_POLICY;
 	delete KNOB_DRAM_NUM_CHANNEL;
 	delete KNOB_DRAM_NUM_BANKS;
-	delete KNOB_DRAM_NUM_ROWS;
 	delete KNOB_DRAM_ONE_CYCLE;
 	delete KNOB_DRAM_DDR_FACTOR;
 	delete KNOB_DRAM_BUS_WIDTH;
@@ -1390,7 +1389,6 @@ void all_knobs_c::registerKnobs(KnobsContainer *container) {
 	container->insertKnob( KNOB_DRAM_SCHEDULING_POLICY );
 	container->insertKnob( KNOB_DRAM_NUM_CHANNEL );
 	container->insertKnob( KNOB_DRAM_NUM_BANKS );
-	container->insertKnob( KNOB_DRAM_NUM_ROWS );
 	container->insertKnob( KNOB_DRAM_ONE_CYCLE );
 	container->insertKnob( KNOB_DRAM_DDR_FACTOR );
 	container->insertKnob( KNOB_DRAM_BUS_WIDTH );

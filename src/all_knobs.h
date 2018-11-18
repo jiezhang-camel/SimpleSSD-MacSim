@@ -355,7 +355,7 @@ class all_knobs_c {
 		KnobTemplate< string >* KNOB_DRAM_SCHEDULING_POLICY;
 		KnobTemplate< int >* KNOB_DRAM_NUM_CHANNEL;
 		KnobTemplate< int >* KNOB_DRAM_NUM_BANKS;
-		KnobTemplate< int >* KNOB_DRAM_NUM_ROWS;
+		KnobTemplate<int> *KNOB_DRAM_NUM_ROWS;
 		KnobTemplate< uns >* KNOB_DRAM_ONE_CYCLE;
 		KnobTemplate< uns >* KNOB_DRAM_DDR_FACTOR;
 		KnobTemplate< uns >* KNOB_DRAM_BUS_WIDTH;

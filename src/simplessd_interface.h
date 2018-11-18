@@ -37,6 +37,7 @@ class simplessd_interface_c : public dram_c {
   float clock_freq;
   map<unsigned long long, queue<mem_req_s *>> *m_input_buffer;
   map<unsigned long long, mem_req_s *> *m_output_buffer;
+  map<unsigned long long, unsigned long long> m_lpn_ppn;
 };
 
 #endif

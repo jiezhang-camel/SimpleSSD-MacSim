@@ -42,6 +42,11 @@ simplessd_interface_c::simplessd_interface_c(macsim_c *simBase)
   m_output_buffer = new map<unsigned long long, mem_req_s *>;
 
   pHIL->getLPNInfo(totalLogicalPages, logicalPageSize);
+
+  // uint64_t FinishTime;
+  // printf("Jie: FinishTime %lu\n",FinishTime);
+  // pHIL->forward(1,1,1,1,1,1,FinishTime);
+  // printf("Jie: FinishTime %lu\n",FinishTime);
 }
 
 simplessd_interface_c::~simplessd_interface_c() {
@@ -208,16 +213,52 @@ bool simplessd_interface_c::insert_new_req(unsigned long long &finishTime,
   uint64_t finishTick =
       static_cast<unsigned long long>(m_cycle * 1000 / clock_freq);
 
-  SimpleSSD::Logger::info("Request arrived at %d cycle (%" PRIu64 " ps)",
-                          m_cycle, finishTick);
-
-  if (mem_req->m_dirty)
-    pHIL->write(request, finishTick);
-  else
+  SimpleSSD::Logger::info("Request %d arrived at %d cycle (%" PRIu64 " ps)",
+                          request.reqID, m_cycle, finishTick);
+  if (mem_req->m_dirty){
+    auto iter = m_lpn_ppn.find(request.range.slpn);
+    if (iter != m_lpn_ppn.end()){
+      uint32_t ppn = m_lpn_ppn[request.range.slpn];
+      uint32_t channel;
+      uint32_t package;
+      uint32_t die;
+      uint32_t plane;
+      uint32_t block;
+      uint32_t page;
+      if (pHIL->pageregCheck(ppn, channel, package, die, plane,
+                         block, page)){
+        SimpleSSD::Logger::debugprint(SimpleSSD::Logger::LOG_HIL,
+                     "WRITE | REQ %7u | LCA %" PRIu64 " + %" PRIu64
+                     " | BYTE %" PRIu64 " + %" PRIu64,
+                     request.reqID, request.range.slpn, request.range.nlp, 
+                     request.offset, request.length);        
+        pHIL->forward(channel, package, die, plane,
+                         block, page, finishTick);
+      }
+      else {
+        pHIL->write(request, finishTick);
+        uint32_t ppn;
+        pHIL->getLastIdx(ppn);
+        m_lpn_ppn[request.range.slpn] = ppn;
+      }
+    }
+    else{
+      pHIL->write(request, finishTick);
+      uint32_t ppn;
+      pHIL->getLastIdx(ppn);
+      m_lpn_ppn[request.range.slpn] = ppn;
+    }
+  }
+  else{
     pHIL->read(request, finishTick);
+    uint32_t ppn;
+    pHIL->getLastIdx(ppn);
+    m_lpn_ppn[request.range.slpn] = ppn;
+  }
 
   finishTick = finishTick / 1000 * clock_freq;
-  SimpleSSD::Logger::info("Request finished at %d cycle", finishTick);
+  SimpleSSD::Logger::info("Request finished at %d cycle, delay %d cycle", 
+                                  finishTick, finishTick - m_cycle);
   while (1){
     auto iter = m_output_buffer->find(finishTick);
     if (iter != m_output_buffer->end()) finishTick++;
