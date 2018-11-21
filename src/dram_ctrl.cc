@@ -260,6 +260,9 @@ void dram_ctrl_c::init(int id) {
 
 // insert a new request from the memory system
 bool dram_ctrl_c::insert_new_req(mem_req_s *mem_req) {
+  printf("addr %lu block_id %d thread_id %d R/W %d\n",
+          mem_req->m_addr, mem_req->m_block_id, mem_req->m_thread_id,
+          mem_req->m_dirty);
   // address parsing
   Addr addr = mem_req->m_addr;
   Addr bid_xor;
