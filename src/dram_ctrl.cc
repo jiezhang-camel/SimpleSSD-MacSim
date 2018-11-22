@@ -260,9 +260,6 @@ void dram_ctrl_c::init(int id) {
 
 // insert a new request from the memory system
 bool dram_ctrl_c::insert_new_req(mem_req_s *mem_req) {
-  printf("addr %lu block_id %d thread_id %d R/W %d\n",
-          mem_req->m_addr, mem_req->m_block_id, mem_req->m_thread_id,
-          mem_req->m_dirty);
   // address parsing
   Addr addr = mem_req->m_addr;
   Addr bid_xor;
@@ -624,6 +621,9 @@ void dram_ctrl_c::receive(void) {
     return;
 
   if (req && insert_new_req(req)) {
+    printf("m_id %d byte_addr %lu req_addr %lu page_addr %lu block_id %d thread_id %d R/W %d m_pc %lu\n",
+            req->m_id, req->m_addr, req->m_addr/128, req->m_addr/4096, req->m_uop->m_orig_block_id, 
+            req->m_uop->m_orig_thread_id, req->m_dirty, req->m_uop->m_pc);
     NETWORK->receive_pop(MEM_MC, m_id);
     if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
       m_simBase->m_bug_detector->deallocate_noc(req);
