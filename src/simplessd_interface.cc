@@ -205,6 +205,11 @@ bool simplessd_interface_c::insert_new_req(mem_req_s *mem_req) {
   finishTick = finishTick / 1000 * clock_freq;
   SimpleSSD::Logger::info("Request finished at %d cycle, delay %d cycle", 
                                     finishTick, finishTick - m_cycle);
+  while (1){
+    auto iter = m_output_buffer->find(finishTick);
+    if (iter != m_output_buffer->end()) finishTick++;
+    else break;
+  }
 
   m_output_buffer->insert(pair<unsigned long long, mem_req_s *>(
       static_cast<unsigned long long>(finishTick), mem_req));
