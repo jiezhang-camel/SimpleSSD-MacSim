@@ -3,4 +3,4 @@
 	url = https://github.com/cameron314/readerwriterqueue
 [submodule "src/simplessd"]
 	path = src/simplessd
-    url = git@repo.yonsei.ac.kr:jie/flash-array.git
+    url = git@143.248.41.78:jie/flash-array.git
