@@ -1,0 +1,4 @@
+network branch:
+include simplessd:network
+integrate network between GPU and NAND flash;
+implement different page register management strategies;
