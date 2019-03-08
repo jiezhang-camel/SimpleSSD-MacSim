@@ -49,7 +49,7 @@ simplessd_interface_c::simplessd_interface_c(macsim_c *simBase)
 }
 
 simplessd_interface_c::~simplessd_interface_c() {
-  delete pHIL;
+  //delete pHIL;
   delete m_output_buffer;
   delete m_input_buffer;
 }
