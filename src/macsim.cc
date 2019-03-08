@@ -245,13 +245,13 @@ void macsim_c::init_memory(void) {
   }
 
   if (m_simBase->m_knobs->KNOB_DRAM_SCHEDULING_POLICY->getValue() == "SIMPLESSD" ){
-    SimpleSSD::ConfigReader configReader;
-    if (!configReader.init((string)*m_simBase->m_knobs->KNOB_SIMPLESSD_CONFIG)) {
+    SimpleSSD::ConfigReader* configReader = new SimpleSSD::ConfigReader();
+    if (!configReader->init((string)*m_simBase->m_knobs->KNOB_SIMPLESSD_CONFIG)) {
       printf("Failed to read SimpleSSD configuration file!\n");
 
       terminate();
     }
-    SimpleSSD::HIL::HIL *pHIL = new SimpleSSD::HIL::HIL(&configReader);
+    SimpleSSD::HIL::HIL *pHIL = new SimpleSSD::HIL::HIL(configReader);
     for (int ii = 0; ii < m_num_mc; ++ii){
       m_dram_controller[ii]->pHIL = pHIL;
     }
