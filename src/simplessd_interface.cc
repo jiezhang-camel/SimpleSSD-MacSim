@@ -25,6 +25,7 @@ dram_c *simplessd_interface(macsim_c *simBase) {
 
 simplessd_interface_c::simplessd_interface_c(macsim_c *simBase)
     : dram_c(simBase) {
+  m_cycle = 0;
   SimpleSSD::Logger::initLogSystem(std::cout, std::cerr, [this]() -> uint64_t {
     return m_cycle * 1000 / clock_freq;
   });
@@ -244,7 +245,6 @@ bool simplessd_interface_c::insert_new_req(unsigned long long &finishTime,
   else{
     pHIL->read(request, finishTick);
   }  
-
   finishTick = finishTick / 1000 * clock_freq;
   SimpleSSD::Logger::info("Request finished at %d cycle, delay %d cycle", 
                                   finishTick, finishTick - m_cycle);
