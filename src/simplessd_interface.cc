@@ -221,7 +221,8 @@ bool simplessd_interface_c::insert_new_req(unsigned long long &finishTime,
   uint32_t page;
   SimpleSSD::Logger::info("Request %d arrived at %d cycle (%" PRIu64 " ps)",
                         request.reqID, m_cycle, finishTick);
-  pHIL->collectPPN(request, ppn, channel, package, die, plane, block, page);
+  pHIL->collectPPN(request, ppn, channel, package, die, plane, 
+                          block, page, finishTick);
   // printf("Jie: lpn %lu ppn %u channel %u package %u die %u plane %u \
   //             block %u page %u\n", request.range.slpn, ppn, channel, package,
   //           die, plane, block, page);
