@@ -29,19 +29,18 @@ simplessd_interface_c::simplessd_interface_c(macsim_c *simBase)
     return m_cycle * 1000 / clock_freq;
   });
 
-  if (!configReader.init((string)*m_simBase->m_knobs->KNOB_SIMPLESSD_CONFIG)) {
-    printf("Failed to read SimpleSSD configuration file!\n");
+  // if (!configReader.init((string)*m_simBase->m_knobs->KNOB_SIMPLESSD_CONFIG)) {
+  //   printf("Failed to read SimpleSSD configuration file!\n");
 
-    terminate();
-  }
+  //   terminate();
+  // }
 
   clock_freq = *m_simBase->m_knobs->KNOB_CLOCK_MC;
 
-  pHIL = new SimpleSSD::HIL::HIL(&configReader);
+  //pHIL = new SimpleSSD::HIL::HIL(&configReader);
   m_input_buffer = new map<unsigned long long, queue<mem_req_s *>>;
   m_output_buffer = new map<unsigned long long, mem_req_s *>;
 
-  pHIL->getLPNInfo(totalLogicalPages, logicalPageSize);
 
   // uint64_t FinishTime;
   // printf("Jie: FinishTime %lu\n",FinishTime);
@@ -57,6 +56,7 @@ simplessd_interface_c::~simplessd_interface_c() {
 
 void simplessd_interface_c::init(int id) {
   m_id = id;
+  pHIL->getLPNInfo(totalLogicalPages, logicalPageSize);
 }
 
 void simplessd_interface_c::send(void) {

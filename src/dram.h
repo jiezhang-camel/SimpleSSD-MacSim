@@ -74,6 +74,8 @@ class dram_c {
   virtual void run_a_cycle(bool) = 0;
 
   class ssd_interface_c *m_ssd;
+  
+  SimpleSSD::HIL::HIL *pHIL;
 
  protected:
   /**

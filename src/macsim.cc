@@ -237,13 +237,30 @@ void macsim_c::init_memory(void) {
   // dram controller
   m_num_mc = m_simBase->m_knobs->KNOB_DRAM_NUM_MC->getValue();
   m_dram_controller = new dram_c *[m_num_mc];
-  
+
   for (int ii = 0; ii < m_num_mc; ++ii) {
     m_dram_controller[ii] = dram_factory_c::get()->allocate(
         m_simBase->m_knobs->KNOB_DRAM_SCHEDULING_POLICY->getValue(), m_simBase);
-    m_dram_controller[ii]->init(ii);
     
   }
+
+  if (m_simBase->m_knobs->KNOB_DRAM_SCHEDULING_POLICY->getValue() == "SIMPLESSD" ){
+    SimpleSSD::ConfigReader configReader;
+    if (!configReader.init((string)*m_simBase->m_knobs->KNOB_SIMPLESSD_CONFIG)) {
+      printf("Failed to read SimpleSSD configuration file!\n");
+
+      terminate();
+    }
+    SimpleSSD::HIL::HIL *pHIL = new SimpleSSD::HIL::HIL(&configReader);
+    for (int ii = 0; ii < m_num_mc; ++ii){
+      m_dram_controller[ii]->pHIL = pHIL;
+    }
+  }
+
+  for (int ii = 0; ii < m_num_mc; ++ii) {
+    m_dram_controller[ii]->init(ii);    
+  }
+  
   if (m_simBase->m_knobs->KNOB_DRAM_SCHEDULING_POLICY->getValue() == "SSG" ||
       m_simBase->m_knobs->KNOB_DRAM_SCHEDULING_POLICY->getValue() == "HETERO" ){
     ssd_interface_c * m_ssd = new ssd_interface_c(m_simBase);
