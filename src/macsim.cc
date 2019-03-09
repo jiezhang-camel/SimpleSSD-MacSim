@@ -268,6 +268,7 @@ void macsim_c::init_memory(void) {
   }
 
   m_flash_controller = dram_factory_c::get()->allocate("FLASH", m_simBase);
+  m_flash_controller->init(0);
   
   if (m_simBase->m_knobs->KNOB_DRAM_SCHEDULING_POLICY->getValue() == "SSG" ||
       m_simBase->m_knobs->KNOB_DRAM_SCHEDULING_POLICY->getValue() == "HETERO" ){
@@ -973,6 +974,8 @@ int macsim_c::run_a_cycle() {
     for (int ii = 0; ii < m_num_mc; ++ii) {
       m_dram_controller[ii]->run_a_cycle(pll_locked);
     }
+    m_nif_network->run_a_cycle(pll_locked);
+    m_flash_controller->run_a_cycle(pll_locked);
     GET_NEXT_CYCLE(CLOCK_MC);
   }
 #endif /* USING_SST */

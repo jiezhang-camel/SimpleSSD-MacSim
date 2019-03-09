@@ -168,7 +168,7 @@ void flash_interface_c::send(void) {
       req->m_msg_type = NOC_FILL;
 
       bool insert_packet =
-          NETWORK->send(req, MEM_MC, m_id, MEM_L3, req->m_cache_id[MEM_L3]);
+          NIF_NETWORK->send(req, MEM_FLASH, m_id, MEM_L3, req->m_cache_id[MEM_L3]);
 
       if (!insert_packet) {
         DEBUG("MC[%d] req:%d addr:0x%llx type:%s noc busy\n", m_id, req->m_id,
@@ -205,7 +205,7 @@ void simplessd_interface_c::receive(void) {
 
 void flash_interface_c::receive(void) {
   // check router queue every cycle
-  mem_req_s *req = NETWORK->receive(MEM_MC, m_id);
+  mem_req_s *req = NIF_NETWORK->receive(MEM_FLASH, m_id);
   if (req){
     // check if req has same slot in the input buffer
     bool input_buffer_hit = false;
@@ -216,7 +216,7 @@ void flash_interface_c::receive(void) {
                                   == req->m_addr / logicalPageSize){
         input_buffer_hit = true;
         (I->second).push(req);
-        NETWORK->receive_pop(MEM_MC, m_id);
+        NIF_NETWORK->receive_pop(MEM_FLASH, m_id);
         if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
           m_simBase->m_bug_detector->deallocate_noc(req);
         }
@@ -240,7 +240,7 @@ void flash_interface_c::receive(void) {
           m_input_buffer->insert( pair<unsigned long long, queue<mem_req_s *>>(
                 tmp_time, tmp_queue));
           output_buffer_hit = true;
-          NETWORK->receive_pop(MEM_MC, m_id);
+          NIF_NETWORK->receive_pop(MEM_FLASH, m_id);
           if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
             m_simBase->m_bug_detector->deallocate_noc(req);
           }
@@ -252,7 +252,7 @@ void flash_interface_c::receive(void) {
     if (input_buffer_hit == false && output_buffer_hit == false){
       unsigned long long finishTime;
       if (req && insert_new_req(finishTime,req)) {
-        NETWORK->receive_pop(MEM_MC, m_id);
+        NIF_NETWORK->receive_pop(MEM_FLASH, m_id);
         if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
           m_simBase->m_bug_detector->deallocate_noc(req);
         }
