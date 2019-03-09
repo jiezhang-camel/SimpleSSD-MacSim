@@ -26,9 +26,23 @@ class simplessd_interface_c : public dram_c {
   void send(void);
   void receive(void);
   void print_req(void);
+ private:
+  float clock_freq;
+  list<mem_req_s *> m_buffer;
+};
+
+class flash_interface_c : public dram_c {
+ public:
+  flash_interface_c(macsim_c *simBase);
+  ~flash_interface_c();
+  void init(int id);
+  void run_a_cycle(bool);
+  void send(void);
+  void receive(void);
+  void print_req(void);
   bool insert_new_req(unsigned long long &, mem_req_s *);
 
-  SimpleSSD::ConfigReader configReader;
+  //SimpleSSD::ConfigReader configReader;
   //SimpleSSD::HIL::HIL *pHIL;
   uint64_t totalLogicalPages;
   uint32_t logicalPageSize;

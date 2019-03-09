@@ -89,6 +89,7 @@ class sw_managed_cache_c;
 class dram_c;
 class dram_ctrl_c;
 class simplessd_interface_c;
+class flash_interface_c;
 class icache_data_c;
 class frontend_s;
 class thread_s;

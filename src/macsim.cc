@@ -175,6 +175,7 @@ void macsim_c::register_functions(void) {
   dram_factory_c::get()->register_class("FCFS", fcfs_controller);
   dram_factory_c::get()->register_class("SSG", ssg_controller);
   dram_factory_c::get()->register_class("HETERO", hetero_controller);
+  dram_factory_c::get()->register_class("FLASH", flash_interface);
 #ifdef RAMULATOR
   dram_factory_c::get()->register_class("RAMULATOR", ramulator_controller);
 #endif
@@ -265,6 +266,8 @@ void macsim_c::init_memory(void) {
   for (int ii = 0; ii < m_num_mc; ++ii) {
     m_dram_controller[ii]->init(ii);    
   }
+
+  m_flash_controller = dram_factory_c::get()->allocate("FLASH", m_simBase);
   
   if (m_simBase->m_knobs->KNOB_DRAM_SCHEDULING_POLICY->getValue() == "SSG" ||
       m_simBase->m_knobs->KNOB_DRAM_SCHEDULING_POLICY->getValue() == "HETERO" ){

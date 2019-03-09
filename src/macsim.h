@@ -235,6 +235,7 @@ class macsim_c {
   core_c *m_core_pointers[MAX_NUM_CORES]; /**< core pointers */
   memory_c *m_memory;                     /**< main memory */
   dram_c **m_dram_controller;             /**< dram controller */
+  dram_c *m_flash_controller;  /**< flash controller */
   int m_num_mc;                           /**< number of memory controllers */
   trace_reader_wrapper_c *m_trace_reader; /**< trace reader */
 

@@ -23,7 +23,18 @@ dram_c *simplessd_interface(macsim_c *simBase) {
   return simplessd_interface_tmp;
 }
 
+dram_c *flash_interface(macsim_c *simBase) {
+  dram_c *flash_interface_tmp = new flash_interface_c(simBase);
+  return flash_interface_tmp;
+}
+
 simplessd_interface_c::simplessd_interface_c(macsim_c *simBase)
+    : dram_c(simBase) {
+  m_cycle = 0;
+  clock_freq = *m_simBase->m_knobs->KNOB_CLOCK_MC;
+}
+
+flash_interface_c::flash_interface_c(macsim_c *simBase)
     : dram_c(simBase) {
   m_cycle = 0;
   SimpleSSD::Logger::initLogSystem(std::cout, std::cerr, [this]() -> uint64_t {
@@ -50,6 +61,9 @@ simplessd_interface_c::simplessd_interface_c(macsim_c *simBase)
 }
 
 simplessd_interface_c::~simplessd_interface_c() {
+}
+
+flash_interface_c::~flash_interface_c() {
   //delete pHIL;
   delete m_output_buffer;
   delete m_input_buffer;
@@ -57,10 +71,67 @@ simplessd_interface_c::~simplessd_interface_c() {
 
 void simplessd_interface_c::init(int id) {
   m_id = id;
+}
+
+void flash_interface_c::init(int id) {
+  m_id = id;
   pHIL->getLPNInfo(totalLogicalPages, logicalPageSize);
 }
 
 void simplessd_interface_c::send(void) {
+  bool req_type_checked[2];
+  req_type_checked[0] = false;
+  req_type_checked[1] = false;
+
+  bool req_type_allowed[2];
+  req_type_allowed[0] = true;
+  req_type_allowed[1] = true;
+
+  int max_iter = 1;
+  if (*KNOB(KNOB_ENABLE_NOC_VC_PARTITION))
+    max_iter = 2;  
+  // when virtual channels are partitioned for CPU and GPU requests,
+  // we need to check individual buffer entries
+  // if not, sequential search would be good enough
+  for (int ii = 0; ii < max_iter; ++ii) {
+    req_type_allowed[0] = !req_type_checked[0];
+    req_type_allowed[1] = !req_type_checked[1];
+    // check both CPU and GPU requests
+    if (req_type_checked[0] == true && req_type_checked[1] == true)
+      break;
+    for (auto I = m_buffer.begin(), E = m_buffer.end();
+         I != E;) {
+      mem_req_s *req = *I;
+      if (req_type_allowed[req->m_ptx] == false) {
+        ++I;
+        continue;
+      }
+
+      req_type_checked[req->m_ptx] = true;
+      req->m_msg_type = NOC_FILL;
+
+      bool insert_packet =
+          NETWORK->send(req, MEM_MC, m_id, MEM_L3, req->m_cache_id[MEM_L3]);
+
+      if (!insert_packet) {
+        DEBUG("MC[%d] req:%d addr:0x%llx type:%s noc busy\n", m_id, req->m_id,
+              req->m_addr, mem_req_c::mem_req_type_name[req->m_type]);
+        break;
+      }
+
+      if (*KNOB(KNOB_BUG_DETECTOR_ENABLE) && *KNOB(KNOB_ENABLE_NEW_NOC)) {
+        m_simBase->m_bug_detector->allocate_noc(req);
+      }
+      I = m_buffer.erase(I);
+
+      m_simBase->m_progress_checker->decrement_outstanding_requests();
+      m_simBase->m_progress_checker->update_dram_progress_info(
+          m_simBase->m_simulation_cycle);
+    }
+  }
+}
+
+void flash_interface_c::send(void) {
   bool req_type_checked[2];
   req_type_checked[0] = false;
   req_type_checked[1] = false;
@@ -118,6 +189,21 @@ void simplessd_interface_c::send(void) {
 }
 
 void simplessd_interface_c::receive(void) {
+  // check router queue every cycle
+  mem_req_s *req = NETWORK->receive(MEM_MC, m_id);
+  if (!req)
+    return;
+
+  if (req) {
+    m_buffer.push_back(req);
+    NETWORK->receive_pop(MEM_MC, m_id);
+    if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
+      m_simBase->m_bug_detector->deallocate_noc(req);
+    }
+  }
+}
+
+void flash_interface_c::receive(void) {
   // check router queue every cycle
   mem_req_s *req = NETWORK->receive(MEM_MC, m_id);
   if (req){
@@ -201,7 +287,7 @@ void simplessd_interface_c::receive(void) {
   }
 }
 
-bool simplessd_interface_c::insert_new_req(unsigned long long &finishTime, 
+bool flash_interface_c::insert_new_req(unsigned long long &finishTime, 
                                              mem_req_s *mem_req) {
   SimpleSSD::ICL::Request request;
   request.reqID = mem_req->m_id;
@@ -272,8 +358,32 @@ void simplessd_interface_c::run_a_cycle(bool pll_lock) {
   ++m_cycle;
 }
 
+// tick a cycle
+void flash_interface_c::run_a_cycle(bool pll_lock) {
+  if (pll_lock) {
+    ++m_cycle;
+    return;
+  }
+  send();
+
+  receive();
+
+  ++m_cycle;
+}
+
 void simplessd_interface_c::print_req(void) {
   FILE *fp = fopen("bug_detect_dram.out", "w");
+
+  fprintf(fp, "Current cycle:%llu\n", m_cycle);
+  // fprintf(fp, "Total req:%d\n", m_total_req);
+  fprintf(fp, "\n");
+  fclose(fp);
+
+  //  g_memory->print_mshr();
+}
+
+void flash_interface_c::print_req(void) {
+  FILE *fp = fopen("bug_detect_flash.out", "w");
 
   fprintf(fp, "Current cycle:%llu\n", m_cycle);
   // fprintf(fp, "Total req:%d\n", m_total_req);

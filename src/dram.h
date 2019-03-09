@@ -103,6 +103,7 @@ dram_c *frfcfs_controller(macsim_c *simBase);
 dram_c *dramsim_controller(macsim_c *simBase);
 dram_c *ramulator_controller(macsim_c *simBase);
 dram_c *simplessd_interface(macsim_c *simBase);
+dram_c *flash_interface(macsim_c *simBase);
 dram_c *ssg_controller(macsim_c *simBase);
 dram_c *hetero_controller(macsim_c *simBase);
 #ifdef USING_SST
