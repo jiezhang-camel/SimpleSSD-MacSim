@@ -260,14 +260,14 @@ void macsim_c::init_memory(void) {
     for (int ii = 0; ii < m_num_mc; ++ii){
       m_dram_controller[ii]->pHIL = pHIL;
     }
+    m_flash_controller = dram_factory_c::get()->allocate("FLASH", m_simBase);
+    m_flash_controller->pHIL = pHIL;
   }
   m_nif_network->init(0, 0, 0, m_num_mc, (int)m_dram_controller[0]->pHIL->getFlashNum());
 
   for (int ii = 0; ii < m_num_mc; ++ii) {
     m_dram_controller[ii]->init(ii);    
   }
-
-  m_flash_controller = dram_factory_c::get()->allocate("FLASH", m_simBase);
   m_flash_controller->init(0);
   
   if (m_simBase->m_knobs->KNOB_DRAM_SCHEDULING_POLICY->getValue() == "SSG" ||
