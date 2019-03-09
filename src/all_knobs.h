@@ -355,7 +355,7 @@ class all_knobs_c {
 		KnobTemplate< string >* KNOB_DRAM_SCHEDULING_POLICY;
 		KnobTemplate< int >* KNOB_DRAM_NUM_CHANNEL;
 		KnobTemplate< int >* KNOB_DRAM_NUM_BANKS;
-		KnobTemplate<int> *KNOB_DRAM_NUM_ROWS;
+		KnobTemplate< int >* KNOB_DRAM_NUM_ROWS;
 		KnobTemplate< uns >* KNOB_DRAM_ONE_CYCLE;
 		KnobTemplate< uns >* KNOB_DRAM_DDR_FACTOR;
 		KnobTemplate< uns >* KNOB_DRAM_BUS_WIDTH;
@@ -439,6 +439,12 @@ class all_knobs_c {
 		KnobTemplate< int >* KNOB_LINK_WIDTH;
 		KnobTemplate< int >* KNOB_NOC_DIMENSION;
 		KnobTemplate< string >* KNOB_NOC_TOPOLOGY;
+		KnobTemplate< int >* KNOB_NIF_NUM_VC;
+		KnobTemplate< int >* KNOB_NIF_NUM_PORT;
+		KnobTemplate< int >* KNOB_NIF_LINK_LATENCY;
+		KnobTemplate< int >* KNOB_NIF_LINK_WIDTH;
+		KnobTemplate< int >* KNOB_NIF_NOC_DIMENSION;
+		KnobTemplate< string >* KNOB_NIF_NOC_TOPOLOGY;
 		KnobTemplate< bool >* KNOB_ENABLE_HETEROGENEOUS_LINK;
 		KnobTemplate< int >* KNOB_NUM_SWITCH;
 		KnobTemplate< int >* KNOB_NUM_SWITCH_CPU;

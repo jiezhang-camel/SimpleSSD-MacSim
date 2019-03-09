@@ -415,6 +415,12 @@ all_knobs_c::all_knobs_c() {
 	KNOB_LINK_WIDTH = new KnobTemplate< int > ("link_width", 16);
 	KNOB_NOC_DIMENSION = new KnobTemplate< int > ("noc_dimension", 1);
 	KNOB_NOC_TOPOLOGY = new KnobTemplate< string > ("noc_topology", "ring");
+	KNOB_NIF_NUM_VC = new KnobTemplate< int > ("nif_num_vc", 4);
+	KNOB_NIF_NUM_PORT = new KnobTemplate< int > ("nif_num_port", 3);
+	KNOB_NIF_LINK_LATENCY = new KnobTemplate< int > ("nif_link_latency", 1);
+	KNOB_NIF_LINK_WIDTH = new KnobTemplate< int > ("nif_link_width", 16);
+	KNOB_NIF_NOC_DIMENSION = new KnobTemplate< int > ("nif_noc_dimension", 1);
+	KNOB_NIF_NOC_TOPOLOGY = new KnobTemplate< string > ("nif_noc_topology", "ring");
 	KNOB_ENABLE_HETEROGENEOUS_LINK = new KnobTemplate< bool > ("enable_heterogeneous_link", false);
 	KNOB_NUM_SWITCH = new KnobTemplate< int > ("num_switch", 1);
 	KNOB_NUM_SWITCH_CPU = new KnobTemplate< int > ("num_switch_cpu", 1);
@@ -856,6 +862,7 @@ all_knobs_c::~all_knobs_c() {
 	delete KNOB_DRAM_SCHEDULING_POLICY;
 	delete KNOB_DRAM_NUM_CHANNEL;
 	delete KNOB_DRAM_NUM_BANKS;
+	delete KNOB_DRAM_NUM_ROWS;
 	delete KNOB_DRAM_ONE_CYCLE;
 	delete KNOB_DRAM_DDR_FACTOR;
 	delete KNOB_DRAM_BUS_WIDTH;
@@ -936,6 +943,12 @@ all_knobs_c::~all_knobs_c() {
 	delete KNOB_LINK_WIDTH;
 	delete KNOB_NOC_DIMENSION;
 	delete KNOB_NOC_TOPOLOGY;
+	delete KNOB_NIF_NUM_VC;
+	delete KNOB_NIF_NUM_PORT;
+	delete KNOB_NIF_LINK_LATENCY;
+	delete KNOB_NIF_LINK_WIDTH;
+	delete KNOB_NIF_NOC_DIMENSION;
+	delete KNOB_NIF_NOC_TOPOLOGY;
 	delete KNOB_ENABLE_HETEROGENEOUS_LINK;
 	delete KNOB_NUM_SWITCH;
 	delete KNOB_NUM_SWITCH_CPU;
@@ -1389,6 +1402,7 @@ void all_knobs_c::registerKnobs(KnobsContainer *container) {
 	container->insertKnob( KNOB_DRAM_SCHEDULING_POLICY );
 	container->insertKnob( KNOB_DRAM_NUM_CHANNEL );
 	container->insertKnob( KNOB_DRAM_NUM_BANKS );
+	container->insertKnob( KNOB_DRAM_NUM_ROWS );
 	container->insertKnob( KNOB_DRAM_ONE_CYCLE );
 	container->insertKnob( KNOB_DRAM_DDR_FACTOR );
 	container->insertKnob( KNOB_DRAM_BUS_WIDTH );
@@ -1472,6 +1486,12 @@ void all_knobs_c::registerKnobs(KnobsContainer *container) {
 	container->insertKnob( KNOB_LINK_WIDTH );
 	container->insertKnob( KNOB_NOC_DIMENSION );
 	container->insertKnob( KNOB_NOC_TOPOLOGY );
+	container->insertKnob( KNOB_NIF_NUM_VC );
+	container->insertKnob( KNOB_NIF_NUM_PORT );
+	container->insertKnob( KNOB_NIF_LINK_LATENCY );
+	container->insertKnob( KNOB_NIF_LINK_WIDTH );
+	container->insertKnob( KNOB_NIF_NOC_DIMENSION );
+	container->insertKnob( KNOB_NIF_NOC_TOPOLOGY );
 	container->insertKnob( KNOB_ENABLE_HETEROGENEOUS_LINK );
 	container->insertKnob( KNOB_NUM_SWITCH );
 	container->insertKnob( KNOB_NUM_SWITCH_CPU );

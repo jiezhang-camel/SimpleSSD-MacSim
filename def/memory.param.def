@@ -129,6 +129,7 @@ param<DRAM_ROWBUFFER_SIZE, dram_rowbuffer_size, int, 2048>
 param<DRAM_SCHEDULING_POLICY, dram_scheduling_policy, string, FRFCFS>
 param<DRAM_NUM_CHANNEL, dram_num_channel, int, 1>
 param<DRAM_NUM_BANKS, dram_num_banks, int, 8>
+param<DRAM_NUM_ROWS, dram_num_rows, int, 512>
 param<DRAM_ONE_CYCLE, dram_one_cycle, uns, 10>
 param<DRAM_DDR_FACTOR, dram_ddr_factor, uns, 2>
 param<DRAM_BUS_WIDTH, dram_bus_width, uns, 8>
