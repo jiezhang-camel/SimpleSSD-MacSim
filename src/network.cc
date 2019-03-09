@@ -53,6 +53,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 int g_total_packet = 0;
 int g_total_cpu_packet = 0;
 int g_total_gpu_packet = 0;
+int g_total_ssd_packet = 0;
+int g_total_flash_packet = 0;
 
 /////////////////////////////////////////////////////////////////////////////////////////
 

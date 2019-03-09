@@ -57,6 +57,7 @@ enum MEMORY_TYPE {
   MEM_L2,
   MEM_L3,
   MEM_MC,
+  MEM_FLASH,
   MEM_LAST,
 };
 

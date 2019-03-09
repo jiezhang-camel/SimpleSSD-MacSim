@@ -51,6 +51,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern int g_total_packet;
 extern int g_total_cpu_packet;
 extern int g_total_gpu_packet;
+extern int g_total_ssd_packet;
+extern int g_total_flash_packet;
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
@@ -75,21 +77,30 @@ void network_ring_c::run_a_cycle(bool pll_lock) {
     m_router.push_back(new_router);                                            \
   }
 
-void network_ring_c::init(int num_cpu, int num_gpu, int num_l3, int num_mc) {
+void network_ring_c::init(int num_cpu, int num_gpu, int num_l3,
+              int num_mc, int num_flash) {
   m_num_router = 0;
   m_num_cpu = num_cpu;
   m_num_gpu = num_gpu;
   m_num_l3 = num_l3;
   m_num_mc = num_mc;
+  m_num_flash = num_flash;
 
   CREATE_ROUTER(m_num_cpu, CPU_ROUTER, MEM_L2, 0);
   CREATE_ROUTER(m_num_gpu, GPU_ROUTER, MEM_L2, m_num_cpu);
   CREATE_ROUTER(m_num_l3, L3_ROUTER, MEM_L3, 0);
   CREATE_ROUTER(m_num_mc, MC_ROUTER, MEM_MC, 0);
+  CREATE_ROUTER(m_num_flash, FLASH_ROUTER, MEM_FLASH, 0);
 
-  report("TOTAL_ROUTER:" << m_num_router << " CPU:" << m_num_cpu
+  if (m_num_flash == 0){
+    report("TOTAL_ROUTER:" << m_num_router << " CPU:" << m_num_cpu
                          << " GPU:" << m_num_gpu << " L3:" << m_num_l3
                          << " MC:" << m_num_mc);
+  }
+  else{
+    report("TOTAL_ROUTER:" << m_num_router << "SSD:" << m_num_mc
+                          << "FLASH:" << m_num_flash);
+  }
 
   for (int ii = 0; ii < m_num_router; ++ii) {
     m_router[ii]->init(m_num_router, &g_total_packet, m_flit_pool,

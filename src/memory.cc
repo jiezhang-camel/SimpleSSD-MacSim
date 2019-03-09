@@ -2340,7 +2340,7 @@ l3_coupled_network_c::l3_coupled_network_c(macsim_c *simBase)
     m_l3_cache[ii]->init(-1, ii, false, true, false, false, true);
   }
 
-  NETWORK->init(m_num_cpu, m_num_gpu, m_num_l3, m_num_mc);
+  NETWORK->init(m_num_cpu, m_num_gpu, m_num_l3, m_num_mc, 0);
 }
 
 l3_coupled_network_c::~l3_coupled_network_c() {}
@@ -2359,7 +2359,7 @@ l3_decoupled_network_c::l3_decoupled_network_c(macsim_c *simBase)
     m_l3_cache[ii]->init(-1, -1, false, false, false, false, true);
   }
 
-  NETWORK->init(m_num_cpu, m_num_gpu, m_num_l3, m_num_mc);
+  NETWORK->init(m_num_cpu, m_num_gpu, m_num_l3, m_num_mc, 0);
 }
 
 l3_decoupled_network_c::~l3_decoupled_network_c() {}
@@ -2376,7 +2376,7 @@ l2_coupled_local_c::l2_coupled_local_c(macsim_c *simBase) : memory_c(simBase) {
     m_l3_cache[ii]->init(-1, ii, false, true, false, true, true);
   }
 
-  NETWORK->init(0, 0, m_num_l3, m_num_mc);
+  NETWORK->init(0, 0, m_num_l3, m_num_mc, 0);
 }
 
 l2_coupled_local_c::~l2_coupled_local_c() {}
@@ -2400,7 +2400,7 @@ no_cache_c::no_cache_c(macsim_c *simBase) : memory_c(simBase) {
     m_l3_cache[ii]->init(-1, ii, false, true, false, true, true);
   }
 
-  NETWORK->init(0, 0, m_num_l3, m_num_mc);
+  NETWORK->init(0, 0, m_num_l3, m_num_mc, 0);
 }
 
 no_cache_c::~no_cache_c() {}
@@ -2428,7 +2428,7 @@ l2_decoupled_network_c::l2_decoupled_network_c(macsim_c *simBase)
     m_l3_cache[ii]->init(-1, -1, false, false, false, false, true);
   }
 
-  NETWORK->init(m_num_cpu, m_num_gpu, m_num_l3, m_num_mc);
+  NETWORK->init(m_num_cpu, m_num_gpu, m_num_l3, m_num_mc, 0);
 }
 
 l2_decoupled_network_c::~l2_decoupled_network_c() {}

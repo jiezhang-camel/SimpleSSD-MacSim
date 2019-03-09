@@ -49,6 +49,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define GPU_ROUTER 1
 #define L3_ROUTER 2
 #define MC_ROUTER 3
+#define FLASH_ROUTER 4
 
 #define LOCAL 0
 #define LEFT 1
@@ -310,7 +311,8 @@ class network_c {
   network_c();
 
  public:
-  virtual void init(int num_cpu, int num_gpu, int num_l3, int num_mc) = 0;
+  virtual void init(int num_cpu, int num_gpu, int num_l3, int num_mc,
+                    int num_flash) = 0;
 
   virtual bool send(mem_req_s *req, int src_level, int src_id, int dst_level,
                     int dst_id);
@@ -333,6 +335,8 @@ class network_c {
   int m_num_gpu;
   int m_num_l3;
   int m_num_mc;
+  int m_num_ssd;
+  int m_num_flash;
 
   pool_c<flit_c> *m_flit_pool;     /**< flit data structure pool */
   pool_c<credit_c> *m_credit_pool; /**< credit pool */
