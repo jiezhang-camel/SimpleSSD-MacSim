@@ -244,6 +244,10 @@ void macsim_c::init_memory(void) {
     
   }
 
+  // network in flash
+  string nif_network_type = KNOB(KNOB_NIF_NOC_TOPOLOGY)->getValue();
+  m_nif_network = network_factory_c::get()->allocate(nif_network_type, m_simBase);
+
   if (m_simBase->m_knobs->KNOB_DRAM_SCHEDULING_POLICY->getValue() == "SIMPLESSD" ){
     SimpleSSD::ConfigReader* configReader = new SimpleSSD::ConfigReader();
     if (!configReader->init((string)*m_simBase->m_knobs->KNOB_SIMPLESSD_CONFIG)) {
@@ -256,6 +260,7 @@ void macsim_c::init_memory(void) {
       m_dram_controller[ii]->pHIL = pHIL;
     }
   }
+  m_nif_network->init(0, 0, 0, m_num_mc, (int)m_dram_controller[0]->pHIL->getFlashNum());
 
   for (int ii = 0; ii < m_num_mc; ++ii) {
     m_dram_controller[ii]->init(ii);    
@@ -268,6 +273,7 @@ void macsim_c::init_memory(void) {
       m_dram_controller[ii]->m_ssd = m_ssd;
     }
   }
+
 
 
   // initialize memory
@@ -617,6 +623,7 @@ void macsim_c::deallocate_memory(void) {
   delete m_invalid_uop;
   delete m_memory;
   delete m_network;
+  delete m_nif_network;
 
   for (int ii = 0; ii < m_num_mc; ++ii) {
     delete m_dram_controller[ii];

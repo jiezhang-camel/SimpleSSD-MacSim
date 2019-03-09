@@ -68,6 +68,7 @@ class Topology;
 
 #define CYCLE m_simBase->m_simulation_cycle
 #define NETWORK m_simBase->m_network
+#define NIF_NETWORK m_simBase->m_nif_network
 #define DRAM_CTRL m_simBase->m_dram_controller
 #define MEMORY m_simBase->m_memory
 #define DYFR m_simBase->m_dyfr
@@ -273,6 +274,7 @@ class macsim_c {
 
   // interconnect
   network_c *m_network;
+  network_c *m_nif_network;
 
 #ifdef IRIS
   // IRIS
