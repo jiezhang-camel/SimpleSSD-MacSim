@@ -86,11 +86,21 @@ void network_ring_c::init(int num_cpu, int num_gpu, int num_l3,
   m_num_mc = num_mc;
   m_num_flash = num_flash;
 
-  CREATE_ROUTER(m_num_cpu, CPU_ROUTER, MEM_L2, 0);
-  CREATE_ROUTER(m_num_gpu, GPU_ROUTER, MEM_L2, m_num_cpu);
-  CREATE_ROUTER(m_num_l3, L3_ROUTER, MEM_L3, 0);
-  CREATE_ROUTER(m_num_mc, MC_ROUTER, MEM_MC, 0);
-  CREATE_ROUTER(m_num_flash, FLASH_ROUTER, MEM_FLASH, 0);
+  if (m_num_flash == 0){
+    CREATE_ROUTER(m_num_cpu, CPU_ROUTER, MEM_L2, 0);
+    CREATE_ROUTER(m_num_gpu, GPU_ROUTER, MEM_L2, m_num_cpu);
+    CREATE_ROUTER(m_num_l3, L3_ROUTER, MEM_L3, 0);
+    CREATE_ROUTER(m_num_mc, MC_ROUTER, MEM_MC, 0);
+    CREATE_ROUTER(m_num_flash, FLASH_ROUTER, MEM_FLASH, 0);
+  }
+  else{
+    CREATE_ROUTER(m_num_cpu, CPU_ROUTER+20, MEM_L2, 0);
+    CREATE_ROUTER(m_num_gpu, GPU_ROUTER+20, MEM_L2, m_num_cpu);
+    CREATE_ROUTER(m_num_l3, L3_ROUTER+20, MEM_L3, 0);
+    CREATE_ROUTER(m_num_mc, MC_ROUTER+20, MEM_MC, 0);
+    CREATE_ROUTER(m_num_flash, FLASH_ROUTER+20, MEM_FLASH, 0);    
+  }
+
 
   if (m_num_flash == 0){
     report("TOTAL_ROUTER:" << m_num_router << " CPU:" << m_num_cpu
@@ -160,7 +170,11 @@ router_ring_c::router_ring_c(macsim_c *simBase, int type, int id)
     : router_c(simBase, type, id, 3) {
   // configurations
   m_topology = "ring";
-  assert(*KNOB(KNOB_NOC_DIMENSION) == 1);
+  if (type >= 20)
+    assert(*KNOB(KNOB_NIF_NOC_DIMENSION) == 1);
+  else
+    assert(*KNOB(KNOB_NOC_DIMENSION) == 1);
+  
   assert(m_num_vc >= 2);
 }
 

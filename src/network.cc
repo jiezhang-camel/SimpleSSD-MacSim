@@ -162,12 +162,24 @@ void network_c::receive_pop(int level, int id) {
 router_c::router_c(macsim_c *simBase, int type, int id, int num_port)
     : m_simBase(simBase), m_type(type), m_id(id), m_num_port(num_port) {
   // configuration
-  m_num_vc = *KNOB(KNOB_NUM_VC);
-  m_link_latency = *KNOB(KNOB_LINK_LATENCY);
-  m_arbitration_policy = *KNOB(KNOB_ARBITRATION_POLICY);
-  m_link_width = *KNOB(KNOB_LINK_WIDTH);
-  m_num_vc_cpu = *KNOB(KNOB_CPU_VC_PARTITION);
-  m_next_vc = 0;
+  if (m_type >= 20){
+    m_num_vc = *KNOB(KNOB_NIF_NUM_VC);
+    m_link_latency = *KNOB(KNOB_NIF_LINK_LATENCY);
+    m_arbitration_policy = *KNOB(KNOB_ARBITRATION_POLICY);
+    m_link_width = *KNOB(KNOB_NIF_LINK_WIDTH);
+    m_num_vc_cpu = *KNOB(KNOB_CPU_VC_PARTITION);
+    m_next_vc = 0;
+    m_type -= 20;
+  }
+  else{
+    m_num_vc = *KNOB(KNOB_NUM_VC);
+    m_link_latency = *KNOB(KNOB_LINK_LATENCY);
+    m_arbitration_policy = *KNOB(KNOB_ARBITRATION_POLICY);
+    m_link_width = *KNOB(KNOB_LINK_WIDTH);
+    m_num_vc_cpu = *KNOB(KNOB_CPU_VC_PARTITION);
+    m_next_vc = 0;
+  }
+
 
   // link setting
   m_opposite_dir[LOCAL] = LOCAL;

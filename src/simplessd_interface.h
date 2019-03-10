@@ -56,6 +56,7 @@ class flash_interface_c : public dram_c {
   map<unsigned long long, queue<mem_req_s *>> *m_input_buffer;
   map<unsigned long long, mem_req_s *> *m_output_buffer;
   map<unsigned long long, unsigned long long> m_lpn_ppn;
+  list<mem_req_s *> m_buffer;
 };
 
 #endif

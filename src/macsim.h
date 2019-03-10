@@ -276,6 +276,7 @@ class macsim_c {
   // interconnect
   network_c *m_network;
   network_c *m_nif_network;
+  uint64_t nif_counter;
 
 #ifdef IRIS
   // IRIS

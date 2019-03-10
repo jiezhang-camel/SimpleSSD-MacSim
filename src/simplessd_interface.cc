@@ -349,6 +349,9 @@ void flash_interface_c::receive(void) {
       }  
     }
   
+    
+  }
+  for (auto II = 0; II < m_simBase->m_knobs->KNOB_DRAM_NUM_MC->getValue(); II++){
     auto I = m_input_buffer->begin();
     auto E = m_input_buffer->end();
     if ((I != E) && (I->first <= m_cycle)){
@@ -372,7 +375,10 @@ void flash_interface_c::receive(void) {
         m_input_buffer->insert( pair<unsigned long long, queue<mem_req_s *>>(
               finishTime, tmp_queue));      
       }
-    }    
+    }
+    else{
+      break;
+    }
   }
 }
 

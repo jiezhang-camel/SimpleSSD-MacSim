@@ -107,6 +107,7 @@ macsim_c::macsim_c() {
 
   m_pll_lockout = 0;
   m_hmc_trans_id_gen = 0;
+  nif_counter = 0;
 }
 
 // =======================================
@@ -977,6 +978,7 @@ int macsim_c::run_a_cycle() {
     for (int ii = 0; ii < m_num_mc; ++ii) {
       m_dram_controller[ii]->run_a_cycle(pll_locked);
     }
+    nif_counter++;
     m_nif_network->run_a_cycle(pll_locked);
     m_flash_controller->run_a_cycle(pll_locked);
     GET_NEXT_CYCLE(CLOCK_MC);
