@@ -71,6 +71,7 @@ flash_interface_c::~flash_interface_c() {
 
 void simplessd_interface_c::init(int id) {
   m_id = id;
+  pHIL->getLPNInfo(totalLogicalPages, logicalPageSize);
 }
 
 void flash_interface_c::init(int id) {
@@ -79,6 +80,18 @@ void flash_interface_c::init(int id) {
 }
 
 void simplessd_interface_c::send(void) {
+ mem_req_s *req = NIF_NETWORK->receive(MEM_MC, m_id);
+  if (!req)
+    return;
+
+  if (req) {
+    m_output_buffer.push_back(req);
+    NIF_NETWORK->receive_pop(MEM_MC, m_id);
+    if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
+      m_simBase->m_bug_detector->deallocate_noc(req);
+    }
+  }
+
   bool req_type_checked[2];
   req_type_checked[0] = false;
   req_type_checked[1] = false;
@@ -99,7 +112,7 @@ void simplessd_interface_c::send(void) {
     // check both CPU and GPU requests
     if (req_type_checked[0] == true && req_type_checked[1] == true)
       break;
-    for (auto I = m_buffer.begin(), E = m_buffer.end();
+    for (auto I = m_output_buffer.begin(), E = m_output_buffer.end();
          I != E;) {
       mem_req_s *req = *I;
       if (req_type_allowed[req->m_ptx] == false) {
@@ -122,7 +135,7 @@ void simplessd_interface_c::send(void) {
       if (*KNOB(KNOB_BUG_DETECTOR_ENABLE) && *KNOB(KNOB_ENABLE_NEW_NOC)) {
         m_simBase->m_bug_detector->allocate_noc(req);
       }
-      I = m_buffer.erase(I);
+      I = m_output_buffer.erase(I);
 
       m_simBase->m_progress_checker->decrement_outstanding_requests();
       m_simBase->m_progress_checker->update_dram_progress_info(
@@ -166,9 +179,9 @@ void flash_interface_c::send(void) {
 
       req_type_checked[req->m_ptx] = true;
       req->m_msg_type = NOC_FILL;
-
+      cout << "NIF_NETWORK send: flash_id "<< req->m_cache_id[MEM_FLASH] << " mc_id "<< req->m_cache_id[MEM_MC] << endl;
       bool insert_packet =
-          NIF_NETWORK->send(req, MEM_FLASH, m_id, MEM_L3, req->m_cache_id[MEM_L3]);
+          NIF_NETWORK->send(req, MEM_FLASH, req->m_cache_id[MEM_FLASH], MEM_MC, req->m_cache_id[MEM_MC]);
 
       if (!insert_packet) {
         DEBUG("MC[%d] req:%d addr:0x%llx type:%s noc busy\n", m_id, req->m_id,
@@ -190,100 +203,175 @@ void flash_interface_c::send(void) {
 
 void simplessd_interface_c::receive(void) {
   // check router queue every cycle
+  // first, receive message from GPU network
   mem_req_s *req = NETWORK->receive(MEM_MC, m_id);
   if (!req)
     return;
 
   if (req) {
-    m_buffer.push_back(req);
+    m_input_buffer.push_back(req);
     NETWORK->receive_pop(MEM_MC, m_id);
     if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
       m_simBase->m_bug_detector->deallocate_noc(req);
     }
   }
+  // second, send message to flash network
+  bool req_type_checked[2];
+  req_type_checked[0] = false;
+  req_type_checked[1] = false;
+
+  bool req_type_allowed[2];
+  req_type_allowed[0] = true;
+  req_type_allowed[1] = true;
+
+  int max_iter = 1;
+  if (*KNOB(KNOB_ENABLE_NOC_VC_PARTITION))
+    max_iter = 2;  
+  // when virtual channels are partitioned for CPU and GPU requests,
+  // we need to check individual buffer entries
+  // if not, sequential search would be good enough
+  for (int ii = 0; ii < max_iter; ++ii) {
+    req_type_allowed[0] = !req_type_checked[0];
+    req_type_allowed[1] = !req_type_checked[1];
+    // check both CPU and GPU requests
+    if (req_type_checked[0] == true && req_type_checked[1] == true)
+      break;
+    for (auto I = m_input_buffer.begin(), E = m_input_buffer.end();
+         I != E;) {
+      mem_req_s *req = *I;
+      if (req_type_allowed[req->m_ptx] == false) {
+        ++I;
+        continue;
+      }
+
+      req_type_checked[req->m_ptx] = true;
+      req->m_msg_type = NOC_FILL;
+
+      SimpleSSD::ICL::Request request;
+      request.reqID = req->m_id;
+      request.offset = req->m_addr % logicalPageSize;
+      request.length = req->m_size;
+      request.range.slpn = req->m_addr / logicalPageSize;
+      request.range.nlp = (req->m_size + request.offset + logicalPageSize - 1) /
+                          logicalPageSize;
+
+      uint64_t finishTick =
+          static_cast<unsigned long long>(m_cycle * 1000 / clock_freq);
+      uint32_t ppn;
+      uint32_t channel;
+      uint32_t package;
+      uint32_t die;
+      uint32_t plane;
+      uint32_t block;
+      uint32_t page;      
+      pHIL->collectPPN(request, ppn, channel, package, die, plane, 
+                          block, page, finishTick);
+      req->m_cache_id[MEM_FLASH] = die;
+      cout << "NIF_NETWORK receive: flash_id "<< die << " mc_id "<< m_id << endl;
+      bool insert_packet =
+          NIF_NETWORK->send(req, MEM_MC, m_id, MEM_FLASH, die);
+
+      if (!insert_packet) {
+        DEBUG("MC[%d] req:%d addr:0x%llx type:%s noc busy\n", m_id, req->m_id,
+              req->m_addr, mem_req_c::mem_req_type_name[req->m_type]);
+        break;
+      }
+
+      if (*KNOB(KNOB_BUG_DETECTOR_ENABLE) && *KNOB(KNOB_ENABLE_NEW_NOC)) {
+        m_simBase->m_bug_detector->allocate_noc(req);
+      }
+      I = m_input_buffer.erase(I);
+
+      m_simBase->m_progress_checker->decrement_outstanding_requests();
+      m_simBase->m_progress_checker->update_dram_progress_info(
+          m_simBase->m_simulation_cycle);
+    }
+  }  
 }
 
 void flash_interface_c::receive(void) {
-  // check router queue every cycle
-  mem_req_s *req = NIF_NETWORK->receive(MEM_FLASH, m_id);
-  if (req){
-    // check if req has same slot in the input buffer
-    bool input_buffer_hit = false;
-    bool output_buffer_hit = false;
-    for (auto I = m_input_buffer->begin(), E = m_input_buffer->end();
-          I != E; I++){
-      if ((I->second).front()->m_addr / logicalPageSize 
-                                  == req->m_addr / logicalPageSize){
-        input_buffer_hit = true;
-        (I->second).push(req);
-        NIF_NETWORK->receive_pop(MEM_FLASH, m_id);
-        if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
-          m_simBase->m_bug_detector->deallocate_noc(req);
-        }
-        m_simBase->m_progress_checker->increment_outstanding_requests();
-        break;
-      }
-    }
-    if (input_buffer_hit == false){
-      for (auto I = m_output_buffer->begin(), E = m_output_buffer->end();
+  for (auto flash_id = 0; flash_id < pHIL->getFlashNum(); flash_id++){
+    // check router queue every cycle
+    mem_req_s *req = NIF_NETWORK->receive(MEM_FLASH, flash_id);
+    if (req){
+      // check if req has same slot in the input buffer
+      bool input_buffer_hit = false;
+      bool output_buffer_hit = false;
+      for (auto I = m_input_buffer->begin(), E = m_input_buffer->end();
             I != E; I++){
-        if (I->second->m_addr / logicalPageSize 
-                                  == req->m_addr / logicalPageSize){
-          unsigned long long tmp_time = I->first+1;
-          while (1){
-            auto iter = m_input_buffer->find(tmp_time);
-            if (iter != m_input_buffer->end()) tmp_time++;
-            else break;
-          }
-          queue<mem_req_s *> tmp_queue;
-          tmp_queue.push(req);
-          m_input_buffer->insert( pair<unsigned long long, queue<mem_req_s *>>(
-                tmp_time, tmp_queue));
-          output_buffer_hit = true;
-          NIF_NETWORK->receive_pop(MEM_FLASH, m_id);
+        if ((I->second).front()->m_addr / logicalPageSize 
+                                    == req->m_addr / logicalPageSize){
+          input_buffer_hit = true;
+          (I->second).push(req);
+          NIF_NETWORK->receive_pop(MEM_FLASH, flash_id);
           if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
             m_simBase->m_bug_detector->deallocate_noc(req);
           }
           m_simBase->m_progress_checker->increment_outstanding_requests();
           break;
         }
+      }
+      if (input_buffer_hit == false){
+        for (auto I = m_output_buffer->begin(), E = m_output_buffer->end();
+              I != E; I++){
+          if (I->second->m_addr / logicalPageSize 
+                                    == req->m_addr / logicalPageSize){
+            unsigned long long tmp_time = I->first+1;
+            while (1){
+              auto iter = m_input_buffer->find(tmp_time);
+              if (iter != m_input_buffer->end()) tmp_time++;
+              else break;
+            }
+            queue<mem_req_s *> tmp_queue;
+            tmp_queue.push(req);
+            m_input_buffer->insert( pair<unsigned long long, queue<mem_req_s *>>(
+                  tmp_time, tmp_queue));
+            output_buffer_hit = true;
+            NIF_NETWORK->receive_pop(MEM_FLASH, flash_id);
+            if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
+              m_simBase->m_bug_detector->deallocate_noc(req);
+            }
+            m_simBase->m_progress_checker->increment_outstanding_requests();
+            break;
+          }
+        }    
+      }
+      if (input_buffer_hit == false && output_buffer_hit == false){
+        unsigned long long finishTime;
+        if (req && insert_new_req(finishTime,req)) {
+          NIF_NETWORK->receive_pop(MEM_FLASH, flash_id);
+          if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
+            m_simBase->m_bug_detector->deallocate_noc(req);
+          }
+          m_simBase->m_progress_checker->increment_outstanding_requests();
+        }
       }    
     }
-    if (input_buffer_hit == false && output_buffer_hit == false){
+  
+    auto I = m_input_buffer->begin();
+    auto E = m_input_buffer->end();
+    if ((I != E) && (I->first <= m_cycle)){
       unsigned long long finishTime;
-      if (req && insert_new_req(finishTime,req)) {
-        NIF_NETWORK->receive_pop(MEM_FLASH, m_id);
-        if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
-          m_simBase->m_bug_detector->deallocate_noc(req);
+      insert_new_req(finishTime,(I->second).front());
+      finishTime++;
+      if((I->second).size() == 1) m_input_buffer->erase(I);
+      else{
+        (I->second).pop();
+        while (1){
+          auto iter = m_input_buffer->find(finishTime);
+          if (iter != m_input_buffer->end())finishTime++;
+          else break;
         }
-        m_simBase->m_progress_checker->increment_outstanding_requests();
+        queue<mem_req_s *> tmp_queue;
+        while (!(I->second).empty()){
+          tmp_queue.push((I->second).front());
+          (I->second).pop();
+        }
+        m_input_buffer->erase(I);
+        m_input_buffer->insert( pair<unsigned long long, queue<mem_req_s *>>(
+              finishTime, tmp_queue));      
       }
     }    
-  }
-
-  auto I = m_input_buffer->begin();
-  auto E = m_input_buffer->end();
-  if ((I != E) && (I->first <= m_cycle)){
-    unsigned long long finishTime;
-    insert_new_req(finishTime,(I->second).front());
-    finishTime++;
-    if((I->second).size() == 1) m_input_buffer->erase(I);
-    else{
-      (I->second).pop();
-      while (1){
-        auto iter = m_input_buffer->find(finishTime);
-        if (iter != m_input_buffer->end())finishTime++;
-        else break;
-      }
-      queue<mem_req_s *> tmp_queue;
-      while (!(I->second).empty()){
-        tmp_queue.push((I->second).front());
-        (I->second).pop();
-      }
-      m_input_buffer->erase(I);
-      m_input_buffer->insert( pair<unsigned long long, queue<mem_req_s *>>(
-            finishTime, tmp_queue));      
-    }
   }
 }
 

@@ -104,6 +104,21 @@ network_c *default_network(macsim_c *m_simBase) {
   return new_network;
 }
 
+network_c *default_nif_network(macsim_c *m_simBase) {
+  string policy = KNOB(KNOB_NIF_NOC_TOPOLOGY)->getValue();
+  network_c *new_network;
+  if (policy == "ring")
+    new_network = new network_ring_c(m_simBase);
+  else if (policy == "mesh")
+    new_network = new network_mesh_c(m_simBase);
+  else if (policy == "simple_noc")
+    new_network = new network_simple_c(m_simBase);
+  else
+    assert(0);
+
+  return new_network;
+}
+
 /////////////////////////////////////////////////////////////////////////////////////////
 network_c::network_c(macsim_c *simBase) {
   m_simBase = simBase;

@@ -198,6 +198,10 @@ void macsim_c::register_functions(void) {
   network_factory_c::get()->register_class("ring", default_network);
   network_factory_c::get()->register_class("mesh", default_network);
   network_factory_c::get()->register_class("simple_noc", default_network);
+
+  nif_network_factory_c::get()->register_class("ring", default_nif_network);
+  nif_network_factory_c::get()->register_class("mesh", default_nif_network);
+  nif_network_factory_c::get()->register_class("simple_noc", default_nif_network);
 }
 
 // =======================================
@@ -247,7 +251,7 @@ void macsim_c::init_memory(void) {
 
   // network in flash
   string nif_network_type = KNOB(KNOB_NIF_NOC_TOPOLOGY)->getValue();
-  m_nif_network = network_factory_c::get()->allocate(nif_network_type, m_simBase);
+  m_nif_network = nif_network_factory_c::get()->allocate(nif_network_type, m_simBase);
 
   if (m_simBase->m_knobs->KNOB_DRAM_SCHEDULING_POLICY->getValue() == "SIMPLESSD" ){
     SimpleSSD::ConfigReader* configReader = new SimpleSSD::ConfigReader();

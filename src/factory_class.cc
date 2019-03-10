@@ -77,3 +77,4 @@ FACTORY_IMPLEMENTATION(bp_factory_c, bp_dir_base_c *);
 FACTORY_IMPLEMENTATION(mem_factory_c, memory_c *);
 FACTORY_IMPLEMENTATION(llc_factory_c, cache_c *);
 FACTORY_IMPLEMENTATION(network_factory_c, network_c *);
+FACTORY_IMPLEMENTATION(nif_network_factory_c, network_c *);

@@ -26,9 +26,12 @@ class simplessd_interface_c : public dram_c {
   void send(void);
   void receive(void);
   void print_req(void);
+  uint64_t totalLogicalPages;
+  uint32_t logicalPageSize;
  private:
   float clock_freq;
-  list<mem_req_s *> m_buffer;
+  list<mem_req_s *> m_input_buffer;
+  list<mem_req_s *> m_output_buffer;
 };
 
 class flash_interface_c : public dram_c {
