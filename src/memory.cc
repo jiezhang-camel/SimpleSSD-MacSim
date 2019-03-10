@@ -961,6 +961,7 @@ void dcu_c::receive_packet(void) {
       }
 
       if (insert_done) {
+        cout<<"Jie: memreceive "<<req->m_id<<" m_level "<<m_level<<" m_id "<<m_id<<endl;
         NETWORK->receive_pop(m_level, m_id);
 
         if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
@@ -986,6 +987,10 @@ bool dcu_c::send_packet(mem_req_s *req, int msg_type, int dir) {
                                 req->m_cache_id[m_level + dir]);
 
   if (packet_insert) {
+    cout<<"Jie: memsend "<<req->m_id<<" m_level "<<m_level << " m_id "<<m_id<<endl;
+    // if (req->m_id == 285){
+    //   cout << "Jie: next cache level "<< m_level + dir << endl;
+    // }
     if (*KNOB(KNOB_BUG_DETECTOR_ENABLE) &&
         (*KNOB(KNOB_ENABLE_IRIS) || *KNOB(KNOB_ENABLE_NEW_NOC))) {
       m_simBase->m_bug_detector->allocate_noc(req);

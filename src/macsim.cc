@@ -252,7 +252,6 @@ void macsim_c::init_memory(void) {
   // network in flash
   string nif_network_type = KNOB(KNOB_NIF_NOC_TOPOLOGY)->getValue();
   m_nif_network = nif_network_factory_c::get()->allocate(nif_network_type, m_simBase);
-
   if (m_simBase->m_knobs->KNOB_DRAM_SCHEDULING_POLICY->getValue() == "SIMPLESSD" ){
     SimpleSSD::ConfigReader* configReader = new SimpleSSD::ConfigReader();
     if (!configReader->init((string)*m_simBase->m_knobs->KNOB_SIMPLESSD_CONFIG)) {

@@ -81,10 +81,11 @@ void flash_interface_c::init(int id) {
 
 void simplessd_interface_c::send(void) {
  mem_req_s *req = NIF_NETWORK->receive(MEM_MC, m_id);
-  if (!req)
-    return;
+  // if (!req)
+  //   return;
 
   if (req) {
+    cout << "Jie: send "<< req->m_id << endl; 
     m_output_buffer.push_back(req);
     NIF_NETWORK->receive_pop(MEM_MC, m_id);
     if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
@@ -131,6 +132,7 @@ void simplessd_interface_c::send(void) {
               req->m_addr, mem_req_c::mem_req_type_name[req->m_type]);
         break;
       }
+      cout << "Jie: network "<< req->m_id << endl; 
 
       if (*KNOB(KNOB_BUG_DETECTOR_ENABLE) && *KNOB(KNOB_ENABLE_NEW_NOC)) {
         m_simBase->m_bug_detector->allocate_noc(req);
@@ -179,7 +181,6 @@ void flash_interface_c::send(void) {
 
       req_type_checked[req->m_ptx] = true;
       req->m_msg_type = NOC_FILL;
-      cout << "NIF_NETWORK send: flash_id "<< req->m_cache_id[MEM_FLASH] << " mc_id "<< req->m_cache_id[MEM_MC] << endl;
       bool insert_packet =
           NIF_NETWORK->send(req, MEM_FLASH, req->m_cache_id[MEM_FLASH], MEM_MC, req->m_cache_id[MEM_MC]);
 
@@ -188,6 +189,7 @@ void flash_interface_c::send(void) {
               req->m_addr, mem_req_c::mem_req_type_name[req->m_type]);
         break;
       }
+      cout << "NIF_NETWORK send: flash_id "<< req->m_cache_id[MEM_FLASH] << " mc_id "<< req->m_cache_id[MEM_MC] << endl;
 
       if (*KNOB(KNOB_BUG_DETECTOR_ENABLE) && *KNOB(KNOB_ENABLE_NEW_NOC)) {
         m_simBase->m_bug_detector->allocate_noc(req);
@@ -205,10 +207,11 @@ void simplessd_interface_c::receive(void) {
   // check router queue every cycle
   // first, receive message from GPU network
   mem_req_s *req = NETWORK->receive(MEM_MC, m_id);
-  if (!req)
-    return;
+  // if (!req)
+  //   return;
 
   if (req) {
+    cout << "Jie: receive "<< req->m_id << endl;  
     m_input_buffer.push_back(req);
     NETWORK->receive_pop(MEM_MC, m_id);
     if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
@@ -267,7 +270,6 @@ void simplessd_interface_c::receive(void) {
       pHIL->collectPPN(request, ppn, channel, package, die, plane, 
                           block, page, finishTick);
       req->m_cache_id[MEM_FLASH] = die;
-      cout << "NIF_NETWORK receive: flash_id "<< die << " mc_id "<< m_id << endl;
       bool insert_packet =
           NIF_NETWORK->send(req, MEM_MC, m_id, MEM_FLASH, die);
 
@@ -276,7 +278,6 @@ void simplessd_interface_c::receive(void) {
               req->m_addr, mem_req_c::mem_req_type_name[req->m_type]);
         break;
       }
-
       if (*KNOB(KNOB_BUG_DETECTOR_ENABLE) && *KNOB(KNOB_ENABLE_NEW_NOC)) {
         m_simBase->m_bug_detector->allocate_noc(req);
       }
@@ -345,7 +346,7 @@ void flash_interface_c::receive(void) {
           }
           m_simBase->m_progress_checker->increment_outstanding_requests();
         }
-      }    
+      }  
     }
   
     auto I = m_input_buffer->begin();
@@ -430,6 +431,7 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
   m_output_buffer->insert(pair<unsigned long long, mem_req_s *>(
       static_cast<unsigned long long>(finishTick), mem_req));
   finishTime = static_cast<unsigned long long>(finishTick);
+  cout << "NIF_NETWORK finishTime "<< finishTime << endl;
   return true;
 }
 

@@ -32,6 +32,7 @@ class simplessd_interface_c : public dram_c {
   float clock_freq;
   list<mem_req_s *> m_input_buffer;
   list<mem_req_s *> m_output_buffer;
+  list<mem_req_s *> m_buffer;
 };
 
 class flash_interface_c : public dram_c {
