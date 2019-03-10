@@ -106,8 +106,12 @@ void network_mesh_c::init(int num_cpu, int num_gpu, int num_l3,
   if ((width * width) != m_num_router) {
     for (; m_num_router < (width + 1) * (width + 1); ++m_num_router) {
       report("router:" << m_num_router << " type:dummy created");
-
-      router_c *new_router = new router_mesh_c(m_simBase, 0, m_num_router);
+      router_c *new_router;
+      if (m_num_flash == 0) 
+        new_router = new router_mesh_c(m_simBase, 0, m_num_router);
+      else
+        new_router = new router_mesh_c(m_simBase, 20, m_num_router);
+      
       m_router.push_back(new_router);
     }
     ++width;
