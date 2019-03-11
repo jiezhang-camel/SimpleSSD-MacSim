@@ -85,7 +85,7 @@ void simplessd_interface_c::send(void) {
   //   return;
 
   if (req) {
-    cout << "Jie: send "<< req->m_id << endl; 
+    //cout << "Jie: send "<< req->m_id << endl; 
     m_output_buffer.push_back(req);
     NIF_NETWORK->receive_pop(MEM_MC, m_id);
     if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
@@ -132,7 +132,7 @@ void simplessd_interface_c::send(void) {
               req->m_addr, mem_req_c::mem_req_type_name[req->m_type]);
         break;
       }
-      cout << "Jie: network "<< req->m_id << endl; 
+      //cout << "Jie: network "<< req->m_id << endl; 
 
       if (*KNOB(KNOB_BUG_DETECTOR_ENABLE) && *KNOB(KNOB_ENABLE_NEW_NOC)) {
         m_simBase->m_bug_detector->allocate_noc(req);
@@ -211,7 +211,7 @@ void simplessd_interface_c::receive(void) {
   //   return;
 
   if (req) {
-    cout << "Jie: receive "<< req->m_id << endl;  
+    //cout << "Jie: receive "<< req->m_id << endl;  
     m_input_buffer.push_back(req);
     NETWORK->receive_pop(MEM_MC, m_id);
     if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {

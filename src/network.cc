@@ -231,7 +231,7 @@ router_c::router_c(macsim_c *simBase, int type, int id, int num_port)
     fill_n(m_credit[ii], m_num_vc, 10);
   }
 
-  m_buffer_max_size = 10;
+  m_buffer_max_size = 1290;
 
   // switch
   m_sw_avail = new Counter[m_num_port];
@@ -337,8 +337,10 @@ void router_c::local_packet_injection(void) {
       assert(req);
       int num_flit = 1;
       if ((req->m_msg_type == NOC_NEW_WITH_DATA) ||
-          (req->m_msg_type == NOC_FILL))
+          (req->m_msg_type == NOC_FILL)){
         num_flit += req->m_size / m_link_width;
+      }
+        
 
       if (*KNOB(KNOB_IDEAL_NOC))
         num_flit = 1;
