@@ -223,6 +223,14 @@ void macsim_c::init_memory(void) {
   m_process_manager = new process_manager_c(m_simBase);
   m_trace_reader = new trace_reader_wrapper_c(m_simBase);
 
+    SimpleSSD::ConfigReader* configReader = new SimpleSSD::ConfigReader();
+    if (!configReader->init((string)*m_simBase->m_knobs->KNOB_SIMPLESSD_CONFIG)) {
+      printf("Failed to read SimpleSSD configuration file!\n");
+
+      terminate();
+    }
+    SimpleSSD::HIL::HIL *pHIL = new SimpleSSD::HIL::HIL(configReader);
+
   // block schedule info
   block_schedule_info_s *block_schedule_info = new block_schedule_info_s;
   m_block_schedule_info[0] = block_schedule_info;
@@ -252,20 +260,13 @@ void macsim_c::init_memory(void) {
   // network in flash
   string nif_network_type = KNOB(KNOB_NIF_NOC_TOPOLOGY)->getValue();
   m_nif_network = nif_network_factory_c::get()->allocate(nif_network_type, m_simBase);
-  if (m_simBase->m_knobs->KNOB_DRAM_SCHEDULING_POLICY->getValue() == "SIMPLESSD" ){
-    SimpleSSD::ConfigReader* configReader = new SimpleSSD::ConfigReader();
-    if (!configReader->init((string)*m_simBase->m_knobs->KNOB_SIMPLESSD_CONFIG)) {
-      printf("Failed to read SimpleSSD configuration file!\n");
-
-      terminate();
-    }
-    SimpleSSD::HIL::HIL *pHIL = new SimpleSSD::HIL::HIL(configReader);
+//  if (m_simBase->m_knobs->KNOB_DRAM_SCHEDULING_POLICY->getValue() == "SIMPLESSD" ){
     for (int ii = 0; ii < m_num_mc; ++ii){
       m_dram_controller[ii]->pHIL = pHIL;
     }
     m_flash_controller = dram_factory_c::get()->allocate("FLASH", m_simBase);
     m_flash_controller->pHIL = pHIL;
-  }
+ // }
   m_nif_network->init(0, 0, 0, m_num_mc, (int)m_dram_controller[0]->pHIL->getFlashNum());
 
   for (int ii = 0; ii < m_num_mc; ++ii) {
