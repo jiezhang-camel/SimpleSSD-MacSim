@@ -30,7 +30,7 @@ class simplessd_interface_c : public dram_c {
   uint32_t logicalPageSize;
  private:
   float clock_freq;
-  list<mem_req_s *> m_input_buffer;
+  map<unsigned long long, mem_req_s *> m_input_buffer;
   list<mem_req_s *> m_output_buffer;
   list<mem_req_s *> m_buffer;
 };

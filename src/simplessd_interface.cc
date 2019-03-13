@@ -211,8 +211,34 @@ void simplessd_interface_c::receive(void) {
   //   return;
 
   if (req) {
-    //cout << "Jie: receive "<< req->m_id << endl;  
-    m_input_buffer.push_back(req);
+    //cout << "Jie: receive "<< req->m_id << endl;
+    SimpleSSD::ICL::Request request;
+    request.reqID = req->m_id;
+    request.offset = req->m_addr % logicalPageSize;
+    request.length = req->m_size;
+    request.range.slpn = req->m_addr / logicalPageSize;
+    request.range.nlp = (req->m_size + request.offset + logicalPageSize - 1) /
+                        logicalPageSize;
+    uint64_t finishTick =
+        static_cast<unsigned long long>(m_cycle * 1000 / clock_freq);
+    uint32_t ppn;
+    uint32_t channel;
+    uint32_t package;
+    uint32_t die;
+    uint32_t plane;
+    uint32_t block;
+    uint32_t page;      
+    pHIL->collectPPN(request, ppn, channel, package, die, plane, 
+                        block, page, finishTick);
+    req->m_cache_id[MEM_FLASH] = die;
+    finishTick = finishTick / 1000 * clock_freq;
+    while (1){
+      auto iter = m_input_buffer.find(finishTick);
+      if (iter != m_input_buffer.end()) finishTick++;
+      else break;
+    }  
+    m_input_buffer.insert(pair<unsigned long long, mem_req_s *>(
+      static_cast<unsigned long long>(finishTick), req));
     NETWORK->receive_pop(MEM_MC, m_id);
     if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
       m_simBase->m_bug_detector->deallocate_noc(req);
@@ -241,7 +267,9 @@ void simplessd_interface_c::receive(void) {
       break;
     for (auto I = m_input_buffer.begin(), E = m_input_buffer.end();
          I != E;) {
-      mem_req_s *req = *I;
+      if (I->first > m_cycle)
+        break;
+      mem_req_s *req = I->second;
       if (req_type_allowed[req->m_ptx] == false) {
         ++I;
         continue;
@@ -249,29 +277,9 @@ void simplessd_interface_c::receive(void) {
 
       req_type_checked[req->m_ptx] = true;
       req->m_msg_type = NOC_FILL;
-
-      SimpleSSD::ICL::Request request;
-      request.reqID = req->m_id;
-      request.offset = req->m_addr % logicalPageSize;
-      request.length = req->m_size;
-      request.range.slpn = req->m_addr / logicalPageSize;
-      request.range.nlp = (req->m_size + request.offset + logicalPageSize - 1) /
-                          logicalPageSize;
-
-      uint64_t finishTick =
-          static_cast<unsigned long long>(m_cycle * 1000 / clock_freq);
-      uint32_t ppn;
-      uint32_t channel;
-      uint32_t package;
-      uint32_t die;
-      uint32_t plane;
-      uint32_t block;
-      uint32_t page;      
-      pHIL->collectPPN(request, ppn, channel, package, die, plane, 
-                          block, page, finishTick);
-      req->m_cache_id[MEM_FLASH] = die;
       bool insert_packet =
-          NIF_NETWORK->send(req, MEM_MC, m_id, MEM_FLASH, die);
+          NIF_NETWORK->send(req, MEM_MC, m_id, MEM_FLASH, 
+                                req->m_cache_id[MEM_FLASH]);
 
       if (!insert_packet) {
         DEBUG("MC[%d] req:%d addr:0x%llx type:%s noc busy\n", m_id, req->m_id,
