@@ -91,6 +91,7 @@ void simplessd_interface_c::send(void) {
     if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
       m_simBase->m_bug_detector->deallocate_noc(req);
     }
+    m_simBase->m_progress_checker->increment_outstanding_requests();
   }
 
   bool req_type_checked[2];
@@ -131,8 +132,7 @@ void simplessd_interface_c::send(void) {
         DEBUG("MC[%d] req:%d addr:0x%llx type:%s noc busy\n", m_id, req->m_id,
               req->m_addr, mem_req_c::mem_req_type_name[req->m_type]);
         break;
-      }
-      //cout << "Jie: network "<< req->m_id << endl; 
+      } 
 
       if (*KNOB(KNOB_BUG_DETECTOR_ENABLE) && *KNOB(KNOB_ENABLE_NEW_NOC)) {
         m_simBase->m_bug_detector->allocate_noc(req);
@@ -243,6 +243,7 @@ void simplessd_interface_c::receive(void) {
     if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
       m_simBase->m_bug_detector->deallocate_noc(req);
     }
+    m_simBase->m_progress_checker->increment_outstanding_requests();
   }
   // second, send message to flash network
   bool req_type_checked[2];

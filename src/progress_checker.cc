@@ -54,6 +54,10 @@ progress_checker_c::progress_checker_c(macsim_c *simBase) : m_simBase(simBase) {
 progress_checker_c::~progress_checker_c() {}
 
 bool progress_checker_c::inspect(Counter curr_cycle) {
+  // cout << "fast_forward "<<m_fast_forward_mode
+  //      << " dram_last_active_cycle "<<m_dram_last_active_cycle
+  //      << " curr_cycle "<<curr_cycle
+  //      << " outstanding_requests "<<m_outstanding_requests<<endl;
   if (m_dram_last_active_cycle + 5 > curr_cycle) {
     m_fast_forward_mode = false;
 
