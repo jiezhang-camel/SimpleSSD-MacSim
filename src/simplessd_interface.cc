@@ -189,7 +189,7 @@ void flash_interface_c::send(void) {
               req->m_addr, mem_req_c::mem_req_type_name[req->m_type]);
         break;
       }
-      cout << "NIF_NETWORK send: flash_id "<< req->m_cache_id[MEM_FLASH] << " mc_id "<< req->m_cache_id[MEM_MC] << endl;
+      //cout << "NIF_NETWORK send: flash_id "<< req->m_cache_id[MEM_FLASH] << " mc_id "<< req->m_cache_id[MEM_MC] << endl;
 
       if (*KNOB(KNOB_BUG_DETECTOR_ENABLE) && *KNOB(KNOB_ENABLE_NEW_NOC)) {
         m_simBase->m_bug_detector->allocate_noc(req);
@@ -439,7 +439,7 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
   m_output_buffer->insert(pair<unsigned long long, mem_req_s *>(
       static_cast<unsigned long long>(finishTick), mem_req));
   finishTime = static_cast<unsigned long long>(finishTick);
-  cout << "NIF_NETWORK finishTime "<< finishTime << endl;
+  //cout << "NIF_NETWORK finishTime "<< finishTime << endl;
   return true;
 }
 
