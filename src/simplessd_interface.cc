@@ -404,6 +404,7 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
   uint32_t plane;
   uint32_t block;
   uint32_t page;
+  uint32_t destPlane = (uint32_t)-1;
   SimpleSSD::Logger::info("Request %d arrived at %d cycle (%" PRIu64 " ps)",
                         request.reqID, m_cycle, finishTick);
   pHIL->collectPPN(request, ppn, channel, package, die, plane, 
@@ -411,9 +412,10 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
   // printf("Jie: lpn %lu ppn %u channel %u package %u die %u plane %u \
   //             block %u page %u\n", request.range.slpn, ppn, channel, package,
   //           die, plane, block, page);
+  bool isHit = pHIL->pageregCheck(ppn, channel, package, die, plane,
+                         block, page, destPlane);
   if (mem_req->m_dirty){
-      if (pHIL->pageregCheck(ppn, channel, package, die, plane,
-                         block, page)){
+      if (isHit){
         SimpleSSD::Logger::debugprint(SimpleSSD::Logger::LOG_HIL,
                      "WRITE | REQ %7u | LCA %" PRIu64 " + %" PRIu64
                      " | BYTE %" PRIu64 " + %" PRIu64,
