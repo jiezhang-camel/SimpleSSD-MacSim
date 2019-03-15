@@ -976,9 +976,9 @@ int macsim_c::run_a_cycle() {
   // run dram controllers
   if (m_clock_internal == m_domain_next[CLOCK_MC]) {
     for (int ii = 0; ii < m_num_mc; ++ii) {
-      m_dram_controller[ii]->run_a_cycle(pll_locked);
+      m_dram_controller[ii]->run_a_cycle(pll_locked || m_ff_mode);
     }
-    m_nif_network->run_a_cycle(pll_locked);
+    m_nif_network->run_a_cycle(pll_locked || m_ff_mode);
     m_flash_controller->run_a_cycle(pll_locked);
     GET_NEXT_CYCLE(CLOCK_MC);
   }
