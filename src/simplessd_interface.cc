@@ -230,7 +230,7 @@ void simplessd_interface_c::receive(void) {
     uint32_t page;      
     pHIL->collectPPN(request, ppn, channel, package, die, plane, 
                         block, page, finishTick);
-    req->m_cache_id[MEM_FLASH] = die;
+    req->m_cache_id[MEM_FLASH] = package;
     finishTick = finishTick / 1000 * clock_freq;
     while (1){
       auto iter = m_input_buffer.find(finishTick);
