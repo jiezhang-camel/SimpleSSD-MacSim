@@ -53,7 +53,6 @@ flash_interface_c::flash_interface_c(macsim_c *simBase)
   m_input_buffer = new map<unsigned long long, queue<mem_req_s *>>;
   m_output_buffer = new map<unsigned long long, mem_req_s *>;
 
-
   // uint64_t FinishTime;
   // printf("Jie: FinishTime %lu\n",FinishTime);
   // pHIL->forward(1,1,1,1,1,1,FinishTime);
