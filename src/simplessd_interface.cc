@@ -84,6 +84,8 @@ void simplessd_interface_c::send(void) {
   //   return;
 
   if (req) {
+    cout<<"Jie: flash-SSD latency "<<m_cycle - req->m_in<<endl;
+    req->m_in = m_cycle;
     //cout << "Jie: send "<< req->m_id << endl; 
     m_output_buffer.push_back(req);
     NIF_NETWORK->receive_pop(MEM_MC, m_id);
@@ -124,6 +126,7 @@ void simplessd_interface_c::send(void) {
       req_type_checked[req->m_ptx] = true;
       req->m_msg_type = NOC_FILL;
 
+      req->m_in = m_cycle;
       bool insert_packet =
           NETWORK->send(req, MEM_MC, m_id, MEM_L3, req->m_cache_id[MEM_L3]);
 
@@ -132,6 +135,8 @@ void simplessd_interface_c::send(void) {
               req->m_addr, mem_req_c::mem_req_type_name[req->m_type]);
         break;
       } 
+
+      // cout << "Jie: ioreq latency "<< m_cycle - req->m_in << endl;
 
       if (*KNOB(KNOB_BUG_DETECTOR_ENABLE) && *KNOB(KNOB_ENABLE_NEW_NOC)) {
         m_simBase->m_bug_detector->allocate_noc(req);
@@ -180,6 +185,7 @@ void flash_interface_c::send(void) {
 
       req_type_checked[req->m_ptx] = true;
       req->m_msg_type = NOC_FILL;
+      req->m_in = m_cycle;
       bool insert_packet =
           NIF_NETWORK->send(req, MEM_FLASH, req->m_cache_id[MEM_FLASH], MEM_MC, req->m_cache_id[MEM_MC]);
 
@@ -210,6 +216,8 @@ void simplessd_interface_c::receive(void) {
   //   return;
 
   if (req) {
+    cout<<"Jie: L3-SSD latency "<<m_cycle - req->m_in<<endl;
+    req->m_in = m_cycle;
     //cout << "Jie: receive "<< req->m_id << endl;
     SimpleSSD::ICL::Request request;
     request.reqID = req->m_id;
@@ -286,6 +294,8 @@ void simplessd_interface_c::receive(void) {
               req->m_addr, mem_req_c::mem_req_type_name[req->m_type]);
         break;
       }
+      cout<<"Jie: SSDengine latency "<<m_cycle - req->m_in<<endl;
+      req->m_in = m_cycle;
       if (*KNOB(KNOB_BUG_DETECTOR_ENABLE) && *KNOB(KNOB_ENABLE_NEW_NOC)) {
         m_simBase->m_bug_detector->allocate_noc(req);
       }
@@ -303,6 +313,8 @@ void flash_interface_c::receive(void) {
     // check router queue every cycle
     mem_req_s *req = NIF_NETWORK->receive(MEM_FLASH, flash_id);
     if (req){
+      cout<<"Jie: SSD-flash latency "<<m_cycle - req->m_in<<endl;
+      req->m_in = m_cycle;
       // check if req has same slot in the input buffer
       bool input_buffer_hit = false;
       bool output_buffer_hit = false;
@@ -347,6 +359,8 @@ void flash_interface_c::receive(void) {
       }
       if (input_buffer_hit == false && output_buffer_hit == false){
         unsigned long long finishTime;
+        cout<<"Jie: queue latency "<<m_cycle - req->m_in<<endl;
+        req->m_in = m_cycle;
         if (req && insert_new_req(finishTime,req)) {
           NIF_NETWORK->receive_pop(MEM_FLASH, flash_id);
           if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
@@ -360,6 +374,8 @@ void flash_interface_c::receive(void) {
     auto E = m_input_buffer->end();
     if ((I != E) && (I->first <= m_cycle)){
       unsigned long long finishTime;
+      cout<<"Jie: queue latency "<<m_cycle - (I->second).front()->m_in<<endl;
+      (I->second).front()->m_in = m_cycle;  
       insert_new_req(finishTime,(I->second).front());
       finishTime++;
       if((I->second).size() == 1) m_input_buffer->erase(I);
@@ -408,9 +424,17 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
                         request.reqID, m_cycle, finishTick);
   pHIL->collectPPN(request, ppn, channel, package, die, plane, 
                           block, page, finishTick);
-  // printf("Jie: lpn %lu ppn %u channel %u package %u die %u plane %u \
+  finishTick =
+      static_cast<unsigned long long>(m_cycle * 1000 / clock_freq);
+  // if (mem_req->m_dirty)
+  //   printf("Jie: write lpn %lu ppn %u channel %u package %u die %u plane %u \
   //             block %u page %u\n", request.range.slpn, ppn, channel, package,
   //           die, plane, block, page);
+  // else
+  //   printf("Jie: read lpn %lu ppn %u channel %u package %u die %u plane %u \
+  //             block %u page %u\n", request.range.slpn, ppn, channel, package,
+  //           die, plane, block, page);
+  
   bool isHit = pHIL->pageregCheck(ppn, channel, package, die, plane,
                          block, page, destPlane);
   if (mem_req->m_dirty){

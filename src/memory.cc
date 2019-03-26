@@ -961,6 +961,9 @@ void dcu_c::receive_packet(void) {
       }
 
       if (insert_done) {
+        if (m_level == 3 && (req->m_msg_type == NOC_FILL || req->m_msg_type == NOC_ACK) )
+          cout<<"Jie: SSD-L3 latency "<<m_cycle - req->m_in<<endl;
+        //cout << "Jie: req_latency "<< m_cycle - req->m_in <<" m_level "<<m_level<< endl;
         //cout<<"Jie: memreceive "<<req->m_id<<" m_level "<<m_level<<" m_id "<<m_id<<endl;
         NETWORK->receive_pop(m_level, m_id);
 
@@ -983,10 +986,18 @@ bool dcu_c::send_packet(mem_req_s *req, int msg_type, int dir) {
   req->m_msg_type = msg_type;
 
   bool packet_insert = false;
+
   packet_insert = NETWORK->send(req, m_level, m_id, m_level + dir,
                                 req->m_cache_id[m_level + dir]);
 
   if (packet_insert) {
+    //Jie:
+    if (m_level == 3 && (m_level + dir) == 4){
+      req->m_in = m_cycle;
+    }
+    // if (m_level == 3 && (m_level + dir) == 2){
+    //   cout<<"Jie: memreq latency "<<m_cycle - req->m_in<<endl;
+    // }  
     //cout<<"Jie: memsend "<<req->m_id<<" m_level "<<m_level << " m_id "<<m_id<<endl;
     if (*KNOB(KNOB_BUG_DETECTOR_ENABLE) &&
         (*KNOB(KNOB_ENABLE_IRIS) || *KNOB(KNOB_ENABLE_NEW_NOC))) {
