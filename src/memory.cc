@@ -961,7 +961,7 @@ void dcu_c::receive_packet(void) {
       }
 
       if (insert_done) {
-        if (m_level == 3 && (req->m_msg_type == NOC_FILL || req->m_msg_type == NOC_ACK) )
+        //if (m_level == 3 && (req->m_msg_type == NOC_FILL || req->m_msg_type == NOC_ACK) )
         //cout<<"Janalysis: SSD-L3 latency "<<m_cycle - req->m_in<<endl;
         //cout << "Jie: req_latency "<< m_cycle - req->m_in <<" m_level "<<m_level<< endl;
         //cout<<"Jie: memreceive "<<req->m_id<<" m_level "<<m_level<<" m_id "<<m_id<<endl;
