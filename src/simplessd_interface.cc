@@ -84,8 +84,10 @@ void simplessd_interface_c::send(void) {
   //   return;
 
   if (req) {
-    cout<<"Jie: flash-SSD latency "<<m_cycle - req->m_in<<endl;
-    req->m_in = m_cycle;
+    //cout<<"Janalysis: flash-SSD latency "<<m_cycle - req->m_in<<endl;
+    //Janalysis
+    //req->m_in = m_cycle;
+    
     //cout << "Jie: send "<< req->m_id << endl; 
     m_output_buffer.push_back(req);
     NIF_NETWORK->receive_pop(MEM_MC, m_id);
@@ -216,8 +218,10 @@ void simplessd_interface_c::receive(void) {
   //   return;
 
   if (req) {
-    cout<<"Jie: L3-SSD latency "<<m_cycle - req->m_in<<endl;
-    req->m_in = m_cycle;
+    // cout<<"Janalysis: L3-SSD latency "<<m_cycle - req->m_in<<endl;
+    // Janalysis
+    // req->m_in = m_cycle;
+    
     //cout << "Jie: receive "<< req->m_id << endl;
     SimpleSSD::ICL::Request request;
     request.reqID = req->m_id;
@@ -294,8 +298,10 @@ void simplessd_interface_c::receive(void) {
               req->m_addr, mem_req_c::mem_req_type_name[req->m_type]);
         break;
       }
-      cout<<"Jie: SSDengine latency "<<m_cycle - req->m_in<<endl;
-      req->m_in = m_cycle;
+      //cout<<"Janalysis: SSDengine latency "<<m_cycle - req->m_in<<endl;
+      //Janalysis
+      //req->m_in = m_cycle;
+      
       if (*KNOB(KNOB_BUG_DETECTOR_ENABLE) && *KNOB(KNOB_ENABLE_NEW_NOC)) {
         m_simBase->m_bug_detector->allocate_noc(req);
       }
@@ -313,8 +319,10 @@ void flash_interface_c::receive(void) {
     // check router queue every cycle
     mem_req_s *req = NIF_NETWORK->receive(MEM_FLASH, flash_id);
     if (req){
-      cout<<"Jie: SSD-flash latency "<<m_cycle - req->m_in<<endl;
-      req->m_in = m_cycle;
+      //cout<<"Janalysis: SSD-flash latency "<<m_cycle - req->m_in<<endl;
+      //Janalysis
+      //req->m_in = m_cycle;
+      
       // check if req has same slot in the input buffer
       bool input_buffer_hit = false;
       bool output_buffer_hit = false;
@@ -359,8 +367,10 @@ void flash_interface_c::receive(void) {
       }
       if (input_buffer_hit == false && output_buffer_hit == false){
         unsigned long long finishTime;
-        cout<<"Jie: queue latency "<<m_cycle - req->m_in<<endl;
-        req->m_in = m_cycle;
+        //cout<<"Janalysis: queue latency "<<m_cycle - req->m_in<<endl;
+        //Janalysis
+        //req->m_in = m_cycle;
+        
         if (req && insert_new_req(finishTime,req)) {
           NIF_NETWORK->receive_pop(MEM_FLASH, flash_id);
           if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
@@ -374,7 +384,7 @@ void flash_interface_c::receive(void) {
     auto E = m_input_buffer->end();
     if ((I != E) && (I->first <= m_cycle)){
       unsigned long long finishTime;
-      cout<<"Jie: queue latency "<<m_cycle - (I->second).front()->m_in<<endl;
+      //cout<<"Janalysis: queue latency "<<m_cycle - (I->second).front()->m_in<<endl;
       (I->second).front()->m_in = m_cycle;  
       insert_new_req(finishTime,(I->second).front());
       finishTime++;
