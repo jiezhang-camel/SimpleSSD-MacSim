@@ -137,6 +137,8 @@ void simplessd_interface_c::send(void) {
               req->m_addr, mem_req_c::mem_req_type_name[req->m_type]);
         break;
       } 
+      cout << "ZJ: delete L" << MEM_MC << " m_id " << m_id << " req_id " << req->m_id << endl;
+      cout << "ZJ: insert L" << MEM_L3 << " m_id " << req->m_cache_id[MEM_L3] << " req_id " << req->m_id << endl;      
 
       // cout << "Jie: ioreq latency "<< m_cycle - req->m_in << endl;
 
@@ -196,6 +198,8 @@ void flash_interface_c::send(void) {
               req->m_addr, mem_req_c::mem_req_type_name[req->m_type]);
         break;
       }
+      cout << "ZJ: delete L" << MEM_FLASH << " m_id " << req->m_cache_id[MEM_FLASH] << " req_id " << req->m_id << endl;
+      cout << "ZJ: insert L" << MEM_MC << " m_id " << req->m_cache_id[MEM_MC] << " req_id " << req->m_id << endl;      
       //cout << "NIF_NETWORK send: flash_id "<< req->m_cache_id[MEM_FLASH] << " mc_id "<< req->m_cache_id[MEM_MC] << endl;
 
       if (*KNOB(KNOB_BUG_DETECTOR_ENABLE) && *KNOB(KNOB_ENABLE_NEW_NOC)) {
@@ -298,6 +302,8 @@ void simplessd_interface_c::receive(void) {
               req->m_addr, mem_req_c::mem_req_type_name[req->m_type]);
         break;
       }
+      cout << "ZJ: delete L" << MEM_MC << " m_id " << m_id << " req_id " << req->m_id << endl;
+      cout << "ZJ: insert L" << MEM_FLASH << " m_id " << req->m_cache_id[MEM_FLASH]<< " req_id " << req->m_id << endl;
       //cout<<"Janalysis: SSDengine latency "<<m_cycle - req->m_in<<endl;
       //Janalysis
       //req->m_in = m_cycle;
