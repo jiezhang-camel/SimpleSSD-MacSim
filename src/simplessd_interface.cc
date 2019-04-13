@@ -91,6 +91,7 @@ void simplessd_interface_c::send(void) {
     //cout << "Jie: send "<< req->m_id << endl; 
     m_output_buffer.push_back(req);
     NIF_NETWORK->receive_pop(MEM_MC, m_id);
+    m_simBase->m_progress_checker->decrement_outstanding_layered_requests(7); //NIF_NETWORK
     if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
       m_simBase->m_bug_detector->deallocate_noc(req);
     }
@@ -137,8 +138,11 @@ void simplessd_interface_c::send(void) {
               req->m_addr, mem_req_c::mem_req_type_name[req->m_type]);
         break;
       } 
-      cout << "ZJ: delete L" << MEM_MC << " m_id " << m_id << " req_id " << req->m_id << endl;
-      cout << "ZJ: insert L" << MEM_L3 << " m_id " << req->m_cache_id[MEM_L3] << " req_id " << req->m_id << endl;      
+      m_simBase->m_progress_checker->increment_outstanding_layered_requests(6); //NETWORK
+      m_simBase->m_progress_checker->decrement_outstanding_layered_requests(MEM_MC);
+      m_simBase->m_progress_checker->increment_outstanding_layered_requests(MEM_L3);
+      // cout << "ZJ: delete L" << MEM_MC << " m_id " << m_id << " req_id " << req->m_id << endl;
+      // cout << "ZJ: insert L" << MEM_L3 << " m_id " << req->m_cache_id[MEM_L3] << " req_id " << req->m_id << endl;      
 
       // cout << "Jie: ioreq latency "<< m_cycle - req->m_in << endl;
 
@@ -192,14 +196,16 @@ void flash_interface_c::send(void) {
       req->m_in = m_cycle;
       bool insert_packet =
           NIF_NETWORK->send(req, MEM_FLASH, req->m_cache_id[MEM_FLASH], MEM_MC, req->m_cache_id[MEM_MC]);
-
       if (!insert_packet) {
         DEBUG("MC[%d] req:%d addr:0x%llx type:%s noc busy\n", m_id, req->m_id,
               req->m_addr, mem_req_c::mem_req_type_name[req->m_type]);
         break;
       }
-      cout << "ZJ: delete L" << MEM_FLASH << " m_id " << req->m_cache_id[MEM_FLASH] << " req_id " << req->m_id << endl;
-      cout << "ZJ: insert L" << MEM_MC << " m_id " << req->m_cache_id[MEM_MC] << " req_id " << req->m_id << endl;      
+      m_simBase->m_progress_checker->increment_outstanding_layered_requests(7); //NIF_NETWORK
+      m_simBase->m_progress_checker->decrement_outstanding_layered_requests(MEM_FLASH);
+      m_simBase->m_progress_checker->increment_outstanding_layered_requests(MEM_MC);
+      // cout << "ZJ: delete L" << MEM_FLASH << " m_id " << req->m_cache_id[MEM_FLASH] << " req_id " << req->m_id << endl;
+      // cout << "ZJ: insert L" << MEM_MC << " m_id " << req->m_cache_id[MEM_MC] << " req_id " << req->m_id << endl;      
       //cout << "NIF_NETWORK send: flash_id "<< req->m_cache_id[MEM_FLASH] << " mc_id "<< req->m_cache_id[MEM_MC] << endl;
 
       if (*KNOB(KNOB_BUG_DETECTOR_ENABLE) && *KNOB(KNOB_ENABLE_NEW_NOC)) {
@@ -225,7 +231,6 @@ void simplessd_interface_c::receive(void) {
     // cout<<"Janalysis: L3-SSD latency "<<m_cycle - req->m_in<<endl;
     // Janalysis
     // req->m_in = m_cycle;
-    
     //cout << "Jie: receive "<< req->m_id << endl;
     SimpleSSD::ICL::Request request;
     request.reqID = req->m_id;
@@ -255,6 +260,7 @@ void simplessd_interface_c::receive(void) {
     m_input_buffer.insert(pair<unsigned long long, mem_req_s *>(
       static_cast<unsigned long long>(finishTick), req));
     NETWORK->receive_pop(MEM_MC, m_id);
+    m_simBase->m_progress_checker->decrement_outstanding_layered_requests(6); //NETWORK
     if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
       m_simBase->m_bug_detector->deallocate_noc(req);
     }
@@ -302,8 +308,11 @@ void simplessd_interface_c::receive(void) {
               req->m_addr, mem_req_c::mem_req_type_name[req->m_type]);
         break;
       }
-      cout << "ZJ: delete L" << MEM_MC << " m_id " << m_id << " req_id " << req->m_id << endl;
-      cout << "ZJ: insert L" << MEM_FLASH << " m_id " << req->m_cache_id[MEM_FLASH]<< " req_id " << req->m_id << endl;
+      m_simBase->m_progress_checker->increment_outstanding_layered_requests(7); //NIF_NETWORK
+      m_simBase->m_progress_checker->decrement_outstanding_layered_requests(MEM_MC);
+      m_simBase->m_progress_checker->increment_outstanding_layered_requests(MEM_FLASH);      
+      // cout << "ZJ: delete L" << MEM_MC << " m_id " << m_id << " req_id " << req->m_id << endl;
+      // cout << "ZJ: insert L" << MEM_FLASH << " m_id " << req->m_cache_id[MEM_FLASH]<< " req_id " << req->m_id << endl;
       //cout<<"Janalysis: SSDengine latency "<<m_cycle - req->m_in<<endl;
       //Janalysis
       //req->m_in = m_cycle;
@@ -324,7 +333,7 @@ void flash_interface_c::receive(void) {
   for (auto flash_id = 0; flash_id < pHIL->getFlashNum(); flash_id++){
     // check router queue every cycle
     mem_req_s *req = NIF_NETWORK->receive(MEM_FLASH, flash_id);
-    if (req){
+    if (req){      
       //cout<<"Janalysis: SSD-flash latency "<<m_cycle - req->m_in<<endl;
       //Janalysis
       //req->m_in = m_cycle;
@@ -339,6 +348,7 @@ void flash_interface_c::receive(void) {
           input_buffer_hit = true;
           (I->second).push(req);
           NIF_NETWORK->receive_pop(MEM_FLASH, flash_id);
+          m_simBase->m_progress_checker->decrement_outstanding_layered_requests(7); //NIF_NETWORK
           if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
             m_simBase->m_bug_detector->deallocate_noc(req);
           }
@@ -363,6 +373,7 @@ void flash_interface_c::receive(void) {
                   tmp_time, tmp_queue));
             output_buffer_hit = true;
             NIF_NETWORK->receive_pop(MEM_FLASH, flash_id);
+            m_simBase->m_progress_checker->decrement_outstanding_layered_requests(7); //NIF_NETWORK
             if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
               m_simBase->m_bug_detector->deallocate_noc(req);
             }
@@ -379,6 +390,7 @@ void flash_interface_c::receive(void) {
         
         if (req && insert_new_req(finishTime,req)) {
           NIF_NETWORK->receive_pop(MEM_FLASH, flash_id);
+          m_simBase->m_progress_checker->decrement_outstanding_layered_requests(7); //NIF_NETWORK
           if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
             m_simBase->m_bug_detector->deallocate_noc(req);
           }

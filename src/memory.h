@@ -386,7 +386,7 @@ class memory_c {
   /**
    * Tick a cycle for L1/L2 (core, private) caches
    */
-  void run_a_cycle_core(int, bool);
+  void run_a_cycle_core(int, bool, bool);
 
   /**
    * Tick a cycle for L3 cache

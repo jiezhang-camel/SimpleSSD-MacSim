@@ -50,6 +50,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "network.h"
 #include "port.h"
 #include "uop.h"
+#include "progress_checker.h"
 
 #include "config.h"
 
@@ -801,9 +802,10 @@ void dcu_c::process_in_queue() {
       // -------------------------------------
       if (req->m_type == MRT_WB) {
         line->m_dirty = true;
-        req->m_done = true;
-        cout << "ZJ: delete L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
-        cout << "ZJ: delete 1 L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
+        req->m_done = true;  
+        m_simBase->m_progress_checker->decrement_outstanding_layered_requests(m_level); 
+        // cout << "ZJ: delete L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
+        // cout << "ZJ: delete 1 L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
       }
       // -------------------------------------
       // If done_func is enabled in this level, need to call done_func to fill
@@ -818,8 +820,9 @@ void dcu_c::process_in_queue() {
         if (req->m_done_func && !req->m_done_func(req))
           continue;
         req->m_done = true;
-        cout << "ZJ: delete L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
-        cout << "ZJ: delete 2 L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
+      m_simBase->m_progress_checker->decrement_outstanding_layered_requests(m_level);
+        // cout << "ZJ: delete L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
+        // cout << "ZJ: delete 2 L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
       }
       // -------------------------------------
       // Send a fill request to the upper level via direct path
@@ -833,9 +836,11 @@ void dcu_c::process_in_queue() {
                    req->m_id, mem_req_c::mem_req_type_name[req->m_type]);
         if (!m_prev[req->m_cache_id[m_level - 1]]->fill(req))
           continue;
-        cout << "ZJ: delete L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
-        cout << "ZJ: delete 3 L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
-        cout << "ZJ: insert L" << m_level - 1 << " m_id " << req->m_cache_id[m_level - 1] << " req_id " << req->m_id << endl;            
+      m_simBase->m_progress_checker->decrement_outstanding_layered_requests(m_level);
+      m_simBase->m_progress_checker->increment_outstanding_layered_requests(m_level - 1 );
+        // cout << "ZJ: delete L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
+        // cout << "ZJ: delete 3 L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
+        // cout << "ZJ: insert L" << m_level - 1 << " m_id " << req->m_cache_id[m_level - 1] << " req_id " << req->m_id << endl;            
       }
       // L3 cache - decoupled
       // : send to l2 cache fill via NoC
@@ -885,9 +890,11 @@ void dcu_c::process_in_queue() {
         if (!m_next[req->m_cache_id[m_level + 1]]->insert(req)) {
           continue;
         }
-        cout << "ZJ: delete L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
-        cout << "ZJ: delete 4 L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
-        cout << "ZJ: insert L" << m_level + 1 << " m_id " << req->m_cache_id[m_level + 1]<< " req_id " << req->m_id << endl;  
+        m_simBase->m_progress_checker->decrement_outstanding_layered_requests(m_level);
+        m_simBase->m_progress_checker->increment_outstanding_layered_requests(m_level + 1);        
+        // cout << "ZJ: delete L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
+        // cout << "ZJ: delete 4 L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
+        // cout << "ZJ: insert L" << m_level + 1 << " m_id " << req->m_cache_id[m_level + 1]<< " req_id " << req->m_id << endl;  
         DEBUG_CORE(req->m_core_id,
                    "L%d[%d] (in_queue->L%d[%d]) req:%d type:%s access miss\n",
                    m_level, m_id, m_level + 1, req->m_cache_id[m_level + 1],
@@ -970,7 +977,8 @@ void dcu_c::receive_packet(void) {
       }
 
       if (insert_done) {
-        cout << "ZJ: noc_receive L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
+        m_simBase->m_progress_checker->decrement_outstanding_layered_requests(6); //NETWORK
+        //cout << "ZJ: noc_receive L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
         //if (m_level == 3 && (req->m_msg_type == NOC_FILL || req->m_msg_type == NOC_ACK) )
         //cout<<"Janalysis: SSD-L3 latency "<<m_cycle - req->m_in<<endl;
         //cout << "Jie: req_latency "<< m_cycle - req->m_in <<" m_level "<<m_level<< endl;
@@ -1001,6 +1009,7 @@ bool dcu_c::send_packet(mem_req_s *req, int msg_type, int dir) {
                                 req->m_cache_id[m_level + dir]);
 
   if (packet_insert) {
+    m_simBase->m_progress_checker->increment_outstanding_layered_requests(6); //NETWORK
     //Janalysis:
     // if (m_level == 3 && (m_level + dir) == 4){
     //   req->m_in = m_cycle;
@@ -1055,9 +1064,11 @@ void dcu_c::process_out_queue() {
       }
       if (!send_packet(req, msg_type, 1))
         continue;
-      cout << "ZJ: delete L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
-      cout << "ZJ: delete 5 L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
-      cout << "ZJ: insert L" << m_level + 1 << " m_id " << req->m_cache_id[m_level + 1] << " req_id " << req->m_id << endl;  
+      m_simBase->m_progress_checker->decrement_outstanding_layered_requests(m_level);
+      m_simBase->m_progress_checker->increment_outstanding_layered_requests(m_level + 1);        
+      // cout << "ZJ: delete L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
+      // cout << "ZJ: delete 5 L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
+      // cout << "ZJ: insert L" << m_level + 1 << " m_id " << req->m_cache_id[m_level + 1] << " req_id " << req->m_id << endl;  
       DEBUG_CORE(req->m_core_id,
                  "L%d[%d]->L%d[%d] (out_queue->noc) req:%d type:%s (new)\n",
                  m_level, m_id, m_level + 1, req->m_cache_id[m_level + 1],
@@ -1081,9 +1092,11 @@ void dcu_c::process_out_queue() {
 
       if (!send_packet(req, msg_type, -1))
         continue;
-      cout << "ZJ: delete L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
-      cout << "ZJ: delete 6 L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
-      cout << "ZJ: insert L" << m_level - 1 << " m_id " << req->m_cache_id[m_level - 1]<< " req_id " << req->m_id << endl;  
+      m_simBase->m_progress_checker->decrement_outstanding_layered_requests(m_level);
+      m_simBase->m_progress_checker->increment_outstanding_layered_requests(m_level - 1);    
+      // cout << "ZJ: delete L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
+      // cout << "ZJ: delete 6 L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
+      // cout << "ZJ: insert L" << m_level - 1 << " m_id " << req->m_cache_id[m_level - 1]<< " req_id " << req->m_id << endl;  
       DEBUG_CORE(req->m_core_id,
                  "L%d[%d]->L%d[%d] (out_queue->noc) req:%d type:%s(fill)\n",
                  m_level, m_id, m_level - 1, req->m_cache_id[m_level - 1],
@@ -1097,9 +1110,11 @@ void dcu_c::process_out_queue() {
     else if (req->m_state == MEM_OUT_WB) {
       if (!send_packet(req, NOC_FILL, 1))
         continue;
-      cout << "ZJ: delete L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
-      cout << "ZJ: delete 7 L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
-      cout << "ZJ: insert L" << m_level + 1 << " m_id " << req->m_cache_id[m_level + 1]<< " req_id " << req->m_id << endl;  
+      m_simBase->m_progress_checker->decrement_outstanding_layered_requests(m_level);
+      m_simBase->m_progress_checker->increment_outstanding_layered_requests(m_level + 1);        
+      // cout << "ZJ: delete L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
+      // cout << "ZJ: delete 7 L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
+      // cout << "ZJ: insert L" << m_level + 1 << " m_id " << req->m_cache_id[m_level + 1]<< " req_id " << req->m_id << endl;  
       DEBUG_CORE(req->m_core_id,
                  "L%d[%d]->L%d[%d] (out_queue->noc) req:%d type:%s(fill)\n",
                  m_level, m_id, m_level + 1, req->m_cache_id[m_level + 1],
@@ -1145,8 +1160,9 @@ void dcu_c::process_fill_queue() {
       ASSERTM(m_done && req->m_done_func && req->m_done_func(req),
               "done function failed\n");
       req->m_done = true;
-      cout << "ZJ: delete L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
-      cout << "ZJ: delete 8 L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
+      m_simBase->m_progress_checker->decrement_outstanding_layered_requests(m_level);    
+      // cout << "ZJ: delete L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
+      // cout << "ZJ: delete 8 L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
       done_list.push_back(req);
       ++count;
       continue;
@@ -1231,8 +1247,8 @@ void dcu_c::process_fill_queue() {
 
               if (!m_wb_queue->push(wb))
                 ASSERT(0);
-
-              cout << "ZJ: insert L" << m_level << " m_id " << wb->m_cache_id[m_level] << " req_id " << wb->m_id << endl;
+              m_simBase->m_progress_checker->increment_outstanding_layered_requests(m_level);
+              // cout << "ZJ: insert L" << m_level << " m_id " << wb->m_cache_id[m_level] << " req_id " << wb->m_id << endl;
 
               if (m_level != MEM_L3) {
                 POWER_CORE_EVENT(req->m_core_id,
@@ -1272,8 +1288,9 @@ void dcu_c::process_fill_queue() {
             continue;
           }
           req->m_done = true;
-          cout << "ZJ: delete L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
-          cout << "ZJ: delete 9 L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
+          m_simBase->m_progress_checker->decrement_outstanding_layered_requests(m_level);
+          // cout << "ZJ: delete L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
+          // cout << "ZJ: delete 9 L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
           DEBUG_CORE(req->m_core_id,
                      "L%d[%d] (fill_queue->done_func()) hit:%d req:%d type:%s "
                      "filled\n",
@@ -1282,8 +1299,9 @@ void dcu_c::process_fill_queue() {
         }
         else if (req->m_type == MRT_WB) {
           req->m_done = true;
-          cout << "ZJ: delete L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
-          cout << "ZJ: delete 10 L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
+          m_simBase->m_progress_checker->decrement_outstanding_layered_requests(m_level);
+          // cout << "ZJ: delete L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
+          // cout << "ZJ: delete 10 L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
           DEBUG_CORE(req->m_core_id,
                      "L%d[%d] (fill_queue->done_func()) hit:%d req:%d type:%s "
                      "filled\n",
@@ -1299,9 +1317,11 @@ void dcu_c::process_fill_queue() {
               req->m_state = MEM_FILL_WAIT_FILL;
               continue;
             }
-            cout << "ZJ: delete L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
-            cout << "ZJ: delete 11 L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
-            cout << "ZJ: insert L" << m_level - 1 << " m_id " << m_prev_id << " req_id " << req->m_id << endl;
+            m_simBase->m_progress_checker->decrement_outstanding_layered_requests(m_level);
+            m_simBase->m_progress_checker->increment_outstanding_layered_requests(m_level - 1); 
+            // cout << "ZJ: delete L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
+            // cout << "ZJ: delete 11 L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
+            // cout << "ZJ: insert L" << m_level - 1 << " m_id " << m_prev_id << " req_id " << req->m_id << endl;
             DEBUG_CORE(
                 req->m_core_id,
                 "L%d[%d] (fill_queue->L%d[%d]) hit:%d req:%d type:%s bypass\n",
@@ -1317,9 +1337,11 @@ void dcu_c::process_fill_queue() {
               req->m_state = MEM_FILL_WAIT_FILL;
               continue;
             }
-            cout << "ZJ: delete L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
-            cout << "ZJ: delete 12 L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
-            cout << "ZJ: insert L" << m_level - 1 << " m_id " << m_prev_id << " req_id " << req->m_id << endl;            
+            m_simBase->m_progress_checker->decrement_outstanding_layered_requests(m_level);
+            m_simBase->m_progress_checker->increment_outstanding_layered_requests(m_level - 1);
+            // cout << "ZJ: delete L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
+            // cout << "ZJ: delete 12 L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
+            // cout << "ZJ: insert L" << m_level - 1 << " m_id " << m_prev_id << " req_id " << req->m_id << endl;            
             DEBUG_CORE(
                 req->m_core_id,
                 "L%d[%d] (fill_queue->L%d[%d]) hit:%d req:%d type:%s filled\n",
@@ -1355,8 +1377,9 @@ void dcu_c::process_fill_queue() {
           continue;
 
         req->m_done = true;
-        cout << "ZJ: delete L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
-        cout << "ZJ: delete 13 L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
+        m_simBase->m_progress_checker->decrement_outstanding_layered_requests(m_level);
+        // cout << "ZJ: delete L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
+        // cout << "ZJ: delete 13 L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
         done_list.push_back(req);
         ++count;
         break;
@@ -1373,9 +1396,11 @@ void dcu_c::process_fill_queue() {
             req->m_state = MEM_FILL_WAIT_FILL;
             continue;
           }
-          cout << "ZJ: delete L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
-          cout << "ZJ: delete 14 L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
-          cout << "ZJ: insert L" << m_level - 1 << " m_id " << m_prev_id << " req_id " << req->m_id << endl;            
+          m_simBase->m_progress_checker->decrement_outstanding_layered_requests(m_level);
+          m_simBase->m_progress_checker->increment_outstanding_layered_requests(m_level - 1);          
+          // cout << "ZJ: delete L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
+          // cout << "ZJ: delete 14 L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
+          // cout << "ZJ: insert L" << m_level - 1 << " m_id " << m_prev_id << " req_id " << req->m_id << endl;            
           DEBUG_CORE(req->m_core_id,
                      "L%d[%d] (fill_queue->L%d[%d]) req:%d type:%s filled\n",
                      m_level, m_id, m_level - 1, req->m_cache_id[m_level - 1],
@@ -1466,9 +1491,11 @@ void dcu_c::process_wb_queue() {
       // if (!m_next->insert(req))
       if (!m_next[m_next_id]->fill(req))
         continue;
-      cout << "ZJ: delete L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
-      cout << "ZJ: delete 15 L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
-      cout << "ZJ: insert L" << m_level + 1 << " m_id " << m_next_id << " req_id " << req->m_id << endl;  
+      m_simBase->m_progress_checker->decrement_outstanding_layered_requests(m_level);
+      m_simBase->m_progress_checker->increment_outstanding_layered_requests(m_level + 1);        
+      // cout << "ZJ: delete L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
+      // cout << "ZJ: delete 15 L" << m_level << " m_id " << m_id << " req_id " << req->m_id << endl;
+      // cout << "ZJ: insert L" << m_level + 1 << " m_id " << m_next_id << " req_id " << req->m_id << endl;  
       DEBUG_CORE(req->m_core_id, "L%d[%d] req:%d type:%s inserted to L%d[%d]\n",
                  m_level, m_id, req->m_id,
                  mem_req_c::mem_req_type_name[req->m_type], m_level + 1,
@@ -1563,8 +1590,8 @@ bool dcu_c::done(mem_req_s *req) {
           // FIXME(jaekyu, 10-26-2011) - queue rejection
           if (!m_wb_queue->push(wb))
             ASSERT(0);
-
-          cout << "ZJ: insert L" << m_level << " m_id " << req->m_cache_id[m_level] << " req_id " << wb->m_id << endl;
+          m_simBase->m_progress_checker->increment_outstanding_layered_requests(m_level);
+          // cout << "ZJ: insert L" << m_level << " m_id " << req->m_cache_id[m_level] << " req_id " << wb->m_id << endl;
 
           DEBUG_CORE(
               req->m_core_id,
@@ -1928,7 +1955,7 @@ bool memory_c::new_mem_req(Mem_Req_Type type, Addr addr, uns size,
   init_new_req(new_req, type, addr, size, with_data, delay, uop, done_func,
                unique_num, priority, core_id, thread_id, ptx);
   
-  cout << "ZJ: mem_req " << new_req->m_id << endl;
+  //cout << "ZJ: mem_req " << new_req->m_id << endl;
 
   // merge to existing request
   if (ptx && *m_simBase->m_knobs->KNOB_COMPUTE_CAPABILITY == 2.0f &&
@@ -1959,7 +1986,8 @@ bool memory_c::new_mem_req(Mem_Req_Type type, Addr addr, uns size,
 
   // insert to queue
   m_l2_cache[core_id]->insert(new_req);
-  cout << "ZJ: insert L" << 2 << " m_id " << core_id << " req_id " << new_req->m_id << endl;
+  m_simBase->m_progress_checker->increment_outstanding_layered_requests(MEM_L2);
+  //cout << "ZJ: insert L" << 2 << " m_id " << core_id << " req_id " << new_req->m_id << endl;
 
   return true;
 }
@@ -2161,9 +2189,13 @@ void memory_c::run_a_cycle(bool pll_lock) {
   ++m_cycle;
 }
 
-void memory_c::run_a_cycle_core(int core_id, bool pll_lock) {
-  m_l2_cache[core_id]->run_a_cycle(pll_lock);
-  m_l1_cache[core_id]->run_a_cycle(pll_lock);
+void memory_c::run_a_cycle_core(int core_id, bool pll_lock, bool m_ff_mode) {
+  if (m_simBase->m_progress_checker->has_outstanding_layered_requests(2))
+    m_l2_cache[core_id]->run_a_cycle(pll_lock);
+  else
+    m_l2_cache[core_id]->run_a_cycle(1);
+  
+  m_l1_cache[core_id]->run_a_cycle(pll_lock || m_ff_mode);
 }
 
 void memory_c::run_a_cycle_uncore(bool pll_lock) {
@@ -2222,7 +2254,7 @@ mem_req_s *memory_c::new_wb_req(Addr addr, int size, bool ptx,
   // req->m_cache_id[MEM_MC] = BANK(addr, m_num_mc,
   // *KNOB(KNOB_DRAM_INTERLEAVE_FACTOR));
 
-  cout << "ZJ: mem_req " << req->m_id << endl;
+  //cout << "ZJ: mem_req " << req->m_id << endl;
   return req;
 }
 

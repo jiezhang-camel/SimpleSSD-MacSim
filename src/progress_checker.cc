@@ -48,6 +48,10 @@ progress_checker_c::progress_checker_c(macsim_c *simBase) : m_simBase(simBase) {
 
   m_outstanding_requests = 0;
 
+  for (int i = 0; i < 8; i++){
+    m_outstanding_layered_requests[i] = 0; //equal to M_LAST + NOC + NIF
+  }
+
   m_fast_forward_mode = false;
 }
 
@@ -58,7 +62,8 @@ bool progress_checker_c::inspect(Counter curr_cycle) {
   //      << " dram_last_active_cycle "<<m_dram_last_active_cycle
   //      << " curr_cycle "<<curr_cycle
   //      << " outstanding_requests "<<m_outstanding_requests<<endl;
-  if (m_dram_last_active_cycle + 5 > curr_cycle) {
+  //if (m_dram_last_active_cycle + 5 > curr_cycle) {
+  if (m_outstanding_layered_requests[2] > 0 ) {
     m_fast_forward_mode = false;
 
     m_frontend_stage_last_active_cycle = curr_cycle;

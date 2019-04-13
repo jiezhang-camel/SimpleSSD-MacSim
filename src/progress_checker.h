@@ -73,6 +73,20 @@ class progress_checker_c {
 
   void decrement_outstanding_requests() { --m_outstanding_requests; }
 
+  void increment_outstanding_layered_requests(int layer) { 
+    ++m_outstanding_layered_requests[layer]; }
+
+  void decrement_outstanding_layered_requests(int layer) { 
+    --m_outstanding_layered_requests[layer]; }
+  
+  bool has_outstanding_layered_requests(int layer) {
+    if (m_outstanding_layered_requests[layer])
+      return true;
+    else
+      return false;
+  }
+
+
  private:
   Counter m_threshold;
 
@@ -83,6 +97,8 @@ class progress_checker_c {
   Counter m_dram_last_active_cycle;
 
   Counter m_outstanding_requests;
+
+  Counter m_outstanding_layered_requests[8]; // equal to M_LAST + NOC + NIF
 
   bool m_fast_forward_mode;
 

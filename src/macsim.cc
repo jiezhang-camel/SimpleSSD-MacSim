@@ -962,24 +962,43 @@ int macsim_c::run_a_cycle() {
     manifold::kernel::Manifold::Run(
         (double)m_simulation_cycle);  // IRIS for half tick?
 #else
-    m_network->run_a_cycle(pll_locked ); //|| m_ff_mode
+    if (m_progress_checker->has_outstanding_layered_requests(6))
+      m_network->run_a_cycle(pll_locked ); //|| m_ff_mode
+    else
+      m_network->run_a_cycle(1); 
+    
 #endif
     GET_NEXT_CYCLE(CLOCK_NOC);
   }
 
   // run memory system
   if (m_clock_internal == m_domain_next[CLOCK_L3]) {
-    m_memory->run_a_cycle(pll_locked); //|| m_ff_mode 
+    if (m_progress_checker->has_outstanding_layered_requests(3))
+      m_memory->run_a_cycle(pll_locked); //|| m_ff_mode 
+    else
+      m_memory->run_a_cycle(1); 
+    
     GET_NEXT_CYCLE(CLOCK_L3);
   }
 
   // run dram controllers
   if (m_clock_internal == m_domain_next[CLOCK_MC]) {
     for (int ii = 0; ii < m_num_mc; ++ii) {
-      m_dram_controller[ii]->run_a_cycle(pll_locked); //|| m_ff_mode
+      if (m_progress_checker->has_outstanding_layered_requests(4))
+        m_dram_controller[ii]->run_a_cycle(pll_locked); //|| m_ff_mode
+      else
+        m_dram_controller[ii]->run_a_cycle(1);       
     }
-    m_nif_network->run_a_cycle(pll_locked); // || m_ff_mode
-    m_flash_controller->run_a_cycle(pll_locked);
+    if (m_progress_checker->has_outstanding_layered_requests(7))
+      m_nif_network->run_a_cycle(pll_locked); // || m_ff_mode
+    else
+      m_nif_network->run_a_cycle(1); 
+    
+    if (m_progress_checker->has_outstanding_layered_requests(5))
+      m_flash_controller->run_a_cycle(pll_locked);
+    else
+      m_flash_controller->run_a_cycle(1);
+    
     GET_NEXT_CYCLE(CLOCK_MC);
   }
 #endif /* USING_SST */
@@ -1024,10 +1043,10 @@ int macsim_c::run_a_cycle() {
       // run a cycle
 
 #ifndef USING_SST
-      m_memory->run_a_cycle_core(ii, pll_locked); //|| m_ff_mode
+      m_memory->run_a_cycle_core(ii, pll_locked, m_ff_mode); //|| m_ff_mode
 #endif
 
-      core->run_a_cycle(pll_locked); //|| m_ff_mode
+      core->run_a_cycle(pll_locked || m_ff_mode); //|| m_ff_mode
 
       m_num_running_core++;
       STAT_CORE_EVENT(ii, CYC_COUNT);
