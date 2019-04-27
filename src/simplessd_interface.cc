@@ -88,10 +88,16 @@ void simplessd_interface_c::send(void) {
     //Janalysis
     //req->m_in = m_cycle;
     
-    //cout << "Jie: send "<< req->m_id << endl; 
-    m_output_buffer.push_back(req);
     NIF_NETWORK->receive_pop(MEM_MC, m_id);
     m_simBase->m_progress_checker->decrement_outstanding_layered_requests(7); //NIF_NETWORK
+    if (req->m_type == MRT_WB){
+      MEMORY->free_req(req->m_core_id, req);
+      m_simBase->m_progress_checker->decrement_outstanding_layered_requests(MEM_MC);      
+    }
+    else{
+      //cout << "Jie: send "<< req->m_id << endl; 
+      m_output_buffer.push_back(req);
+    }
     if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
       m_simBase->m_bug_detector->deallocate_noc(req);
     }
