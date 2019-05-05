@@ -1046,7 +1046,7 @@ int macsim_c::run_a_cycle() {
       m_memory->run_a_cycle_core(ii, pll_locked, m_ff_mode); //|| m_ff_mode
 #endif
 
-      core->run_a_cycle(pll_locked || m_ff_mode); //|| m_ff_mode
+      core->run_a_cycle(pll_locked|| m_ff_mode); //|| m_ff_mode
 
       m_num_running_core++;
       STAT_CORE_EVENT(ii, CYC_COUNT);
@@ -1076,11 +1076,11 @@ int macsim_c::run_a_cycle() {
       core->advance_queues();
 
       // check heartbeat
-      core->check_heartbeat(false);
+      //core->check_heartbeat(false);
 
       // forward progress check in every 10000 cycles
-      if (!(m_core_cycle[ii] % 10000))
-        core->check_forward_progress();
+      // if (!(m_core_cycle[ii] % 10000))
+      //   core->check_forward_progress();
     }
 
     // when a core has been completed, do last print heartbeat

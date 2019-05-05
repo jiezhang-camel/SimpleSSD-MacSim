@@ -1242,7 +1242,6 @@ void dcu_c::process_fill_queue() {
               // new write-back request
               mem_req_s *wb = m_simBase->m_memory->new_wb_req(
                   victim_line_addr, m_line_size, m_ptx_sim, data, m_level);
-
               wb->m_rdy_cycle = m_cycle + 1;
 
               if (!m_wb_queue->push(wb))
@@ -1584,7 +1583,6 @@ bool dcu_c::done(mem_req_s *req) {
           // new write back request
           mem_req_s *wb = m_simBase->m_memory->new_wb_req(
               repl_line_addr, m_line_size, m_ptx_sim, data, m_level);
-
           wb->m_rdy_cycle = m_cycle + 1;
 
           // FIXME(jaekyu, 10-26-2011) - queue rejection
@@ -1983,7 +1981,6 @@ bool memory_c::new_mem_req(Mem_Req_Type type, Addr addr, uns size,
 
     return true;
   }
-
   // insert to queue
   m_l2_cache[core_id]->insert(new_req);
   m_simBase->m_progress_checker->increment_outstanding_layered_requests(MEM_L2);
@@ -2195,7 +2192,7 @@ void memory_c::run_a_cycle_core(int core_id, bool pll_lock, bool m_ff_mode) {
   else
     m_l2_cache[core_id]->run_a_cycle(1);
   
-  m_l1_cache[core_id]->run_a_cycle(pll_lock || m_ff_mode);
+  m_l1_cache[core_id]->run_a_cycle(pll_lock|| m_ff_mode); //|| m_ff_mode
 }
 
 void memory_c::run_a_cycle_uncore(bool pll_lock) {

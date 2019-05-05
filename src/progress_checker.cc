@@ -63,7 +63,10 @@ bool progress_checker_c::inspect(Counter curr_cycle) {
   //      << " curr_cycle "<<curr_cycle
   //      << " outstanding_requests "<<m_outstanding_requests<<endl;
   //if (m_dram_last_active_cycle + 5 > curr_cycle) {
-  if (m_outstanding_layered_requests[2] > 0 ) {
+  if (m_outstanding_requests == 0)
+    return false;
+
+  if ( (m_outstanding_layered_requests[2] > 0) ) {
     m_fast_forward_mode = false;
 
     m_frontend_stage_last_active_cycle = curr_cycle;
@@ -72,16 +75,23 @@ bool progress_checker_c::inspect(Counter curr_cycle) {
     m_retire_stage_last_active_cycle = curr_cycle;
   }
 
-  if (m_outstanding_requests == 0)
-    return false;
-
-  if (!m_fast_forward_mode) {
+  else if (!m_fast_forward_mode) {
     if ((m_frontend_stage_last_active_cycle + m_threshold < curr_cycle) &&
         (m_allocate_stage_last_active_cycle + m_threshold < curr_cycle) &&
         (m_schedule_stage_last_active_cycle + m_threshold < curr_cycle) &&
         (m_retire_stage_last_active_cycle + m_threshold < curr_cycle))
       m_fast_forward_mode = true;
   }
+
+  else if (m_fast_forward_mode) {
+    if ((m_frontend_stage_last_active_cycle + m_threshold >= curr_cycle) ||
+        (m_allocate_stage_last_active_cycle + m_threshold >= curr_cycle) ||        (m_schedule_stage_last_active_cycle + m_threshold >= curr_cycle) ||
+        (m_retire_stage_last_active_cycle + m_threshold >= curr_cycle)){
+          m_fast_forward_mode = false;
+          cout << "ZJ: FF mode from true to false" << endl;
+        }
+      
+  }  
 
   return m_fast_forward_mode;
 }
