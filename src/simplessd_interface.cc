@@ -257,12 +257,15 @@ void simplessd_interface_c::receive(void) {
     pHIL->collectPPN(request, ppn, channel, package, die, plane, 
                         block, page, finishTick);
     req->m_cache_id[MEM_FLASH] = package;
-    finishTick = finishTick / 1000 * clock_freq;
-    while (1){
-      auto iter = m_input_buffer.find(finishTick);
-      if (iter != m_input_buffer.end()) finishTick++;
-      else break;
-    }  
+    finishTick = m_cycle;
+    // while (1){
+    //   auto iter = m_input_buffer.find(finishTick);
+    //   if (iter != m_input_buffer.end()){
+    //     finishTick++;
+    //     printf("Error in m_input_buffer\n");
+    //   } 
+    //   else break;
+    // }  
     m_input_buffer.insert(pair<unsigned long long, mem_req_s *>(
       static_cast<unsigned long long>(finishTick), req));
     NETWORK->receive_pop(MEM_MC, m_id);
@@ -469,6 +472,13 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
   //             block %u page %u\n", request.range.slpn, ppn, channel, package,
   //           die, plane, block, page);
   
+  if (mem_req->m_addr >= (unsigned long)UINT_MAX) 
+                                printf("Jie: APP 1 app_id %d core_id %d lpn %lu\n", 
+                                        mem_req->m_appl_id, mem_req->m_core_id,
+                                                  request.range.slpn);
+  else printf("Jie: APP 0 app_id %d core_id %d lpn %lu\n", 
+                                        mem_req->m_appl_id, mem_req->m_core_id,
+                                                  request.range.slpn);
   bool isHit = pHIL->pageregCheck(ppn, channel, package, die, plane,
                          block, page, destPlane);
   if (mem_req->m_dirty){
