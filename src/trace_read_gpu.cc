@@ -984,7 +984,6 @@ bool gpu_decoder_c::get_uops_from_traces(int core_id, uop_c *uop,
                 (core->get_trace_info(sim_thread_id)->m_process->m_process_id) *
                 10ul);
   }
-
   uop->m_mem_size = trace_uop->m_mem_size;
 
   uop->m_dir = trace_uop->m_actual_taken;

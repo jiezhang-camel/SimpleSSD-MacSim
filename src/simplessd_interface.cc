@@ -254,8 +254,8 @@ void simplessd_interface_c::receive(void) {
     uint32_t plane;
     uint32_t block;
     uint32_t page;      
-    pHIL->collectPPN(request, ppn, channel, package, die, plane, 
-                        block, page, finishTick);
+    pHIL->collectPPN(req->m_appl_id, request, ppn, channel, package,  
+                        die, plane, block, page, finishTick);
     req->m_cache_id[MEM_FLASH] = package;
     finishTick = m_cycle;
     // while (1){
@@ -459,8 +459,8 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
   uint32_t destPlane = (uint32_t)-1;
   SimpleSSD::Logger::info("Request %d arrived at %d cycle (%" PRIu64 " ps)",
                         request.reqID, m_cycle, finishTick);
-  pHIL->collectPPN(request, ppn, channel, package, die, plane, 
-                          block, page, finishTick);
+  pHIL->collectPPN(mem_req->m_appl_id, request, ppn, channel, package,  
+                          die, plane, block, page, finishTick);
   finishTick =
       static_cast<unsigned long long>(m_cycle * 1000 / clock_freq);
   // if (mem_req->m_dirty)
@@ -492,11 +492,11 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
                          block, page, finishTick);
       }   
       else{
-        pHIL->write(request, finishTick);
+        pHIL->write(mem_req->m_appl_id, request, finishTick);
       } 
   }
   else{
-    pHIL->read(request, finishTick);
+    pHIL->read(mem_req->m_appl_id, request, finishTick);
   }  
   finishTick = finishTick / 1000 * clock_freq;
   SimpleSSD::Logger::info("Request finished at %d cycle, delay %d cycle", 

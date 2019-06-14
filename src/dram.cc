@@ -91,11 +91,11 @@ unsigned long long ssd_interface_c::insert_ssd_req(unsigned long long start_time
 
   SimpleSSD::Logger::info("Request %d arrived at %d cycle (%" PRIu64 " ps)",
                           request.reqID, m_cycle, finishTick);
-
+  //Currently, does not support multi-app
   if (rw)
-    pHIL->write(request, finishTick);
+    pHIL->write(0, request, finishTick);
   else
-    pHIL->read(request, finishTick);
+    pHIL->read(0, request, finishTick);
 
   finishTick = finishTick / 1000 * clock_freq;
   SimpleSSD::Logger::info("Request finished at %d cycle, delay %d cycle", 
