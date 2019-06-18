@@ -417,6 +417,7 @@ void simplessd_interface_c::receive(void) {
     uint32_t page;      
     pHIL->collectPPN(req->m_appl_id, request, ppn, channel, package,  
                         die, plane, block, page, finishTick);
+    package = package + channel * palparam->package;
     req->m_cache_id[MEM_FLASH] = package;
     finishTick = m_cycle;
     // while (1){
@@ -598,6 +599,36 @@ void flash_interface_c::receive(void) {
   }
 }
 
+uint32_t flash_interface_c::converttoPlaneIdx(uint32_t channel, uint32_t package,
+    uint32_t die, uint32_t plane){
+  uint32_t ret = 0;
+  ret += plane;
+  ret += die * (palparam->plane * palparam->nandMultiapp);
+  ret += package * palparam->die 
+                      * (palparam->plane * palparam->nandMultiapp);
+  ret += channel * palparam->die * palparam->package
+                    * (palparam->plane * palparam->nandMultiapp);
+  return ret;  
+}
+
+uint32_t flash_interface_c::converttoDieIdx(uint32_t channel, uint32_t package,
+    uint32_t die){
+  uint32_t ret = 0;
+  ret += die;
+  ret += package * palparam->die;
+  ret += channel * palparam->die * palparam->package;
+
+  return ret;      
+}
+
+uint32_t flash_interface_c::converttoPackageIdx(uint32_t channel, uint32_t package){
+  uint32_t ret = 0;
+  ret += package;
+  ret += channel * palparam->package;
+
+  return ret;
+}
+
 bool flash_interface_c::insert_new_req(unsigned long long &finishTime, 
                                              mem_req_s *mem_req) {
   SimpleSSD::ICL::Request request;
@@ -622,8 +653,6 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
                         request.reqID, m_cycle, finishTick);
   pHIL->collectPPN(mem_req->m_appl_id, request, ppn, channel, package,  
                           die, plane, block, page, finishTick);
-  finishTick =
-      static_cast<unsigned long long>(m_cycle * 1000 / clock_freq);
   if (mem_req->m_dirty)
     printf("Jie: write lpn %lu ppn %u channel %u package %u die %u plane %u \
               block %u page %u\n", request.range.slpn, ppn, channel, package,
@@ -640,25 +669,79 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
   // else printf("Jie: APP 0 app_id %d core_id %d lpn %lu\n", 
   //                                       mem_req->m_appl_id, mem_req->m_core_id,
   //                                                 request.range.slpn);
-  bool isHit = pHIL->pageregCheck(ppn, channel, package, die, plane,
-                         block, page, destPlane);
-  if (mem_req->m_dirty){
-      if (isHit){
-        SimpleSSD::Logger::debugprint(SimpleSSD::Logger::LOG_HIL,
-                     "WRITE | REQ %7u | LCA %" PRIu64 " + %" PRIu64
-                     " | BYTE %" PRIu64 " + %" PRIu64,
-                     request.reqID, request.range.slpn, request.range.nlp, 
-                     request.offset, request.length);      
-        pHIL->forward(channel, package, die, plane,
-                         block, page, finishTick);
-      }   
-      else{
-        pHIL->write(mem_req->m_appl_id, request, finishTick);
-      } 
+
+  uint32_t reqPlaneIdx = converttoPlaneIdx(channel, package, die, plane);
+  reqPlaneIdx = reqPlaneIdx*palparam->pageReg / palparam->pageRegAssoc;
+  uint32_t reqPageIdx = ppn;
+  if (palparam->pageReg != 0){
+    int candidateIdx = 0;
+    if (FindCandidateSlot(pageregInternal[reqPlaneIdx], candidateIdx,
+                                                            reqPageIdx)){
+      printf("flash_interface: Pagereg hit @ index %d\n", candidateIdx);
+      uint64_t tmp_arrivedtime = finishTick;
+      if (mem_req->m_dirty == 0){ //read operation
+        pageregInternal[reqPlaneIdx][candidateIdx].available_time = finishTick;
+      }
+      else { // write operation
+        pageregInternal[reqPlaneIdx][candidateIdx].dirty = true;
+        pageregInternal[reqPlaneIdx][candidateIdx].available_time = finishTick;
+      }
+      //printf("Janalysis: flash latency %lu\n",0);
+    }
+    else { // no page registers hit
+      printf("flash_interface: Pagereg miss @ index %d\n", candidateIdx);
+      if (pageregInternal[reqPlaneIdx][candidateIdx].valid){ // conflict miss
+        if (pageregInternal[reqPlaneIdx][candidateIdx].dirty){ // need to evict
+          uint32_t evicted_ppn;
+          uint32_t evicted_channel;
+          uint32_t evicted_package;
+          uint32_t evicted_die;
+          uint32_t evicted_plane;
+          uint32_t evicted_block;
+          uint32_t evicted_page;
+          uint32_t evicted_offset = 0;
+          uint32_t evicted_size = 4096;
+          bool oper;
+          oper = 1; //write
+          evicted_ppn = pageregInternal[reqPlaneIdx][candidateIdx].page;
+          evicted_page = evicted_ppn % palparam->page;
+          evicted_ppn = evicted_ppn / palparam->page;
+          evicted_block = evicted_ppn % palparam->block;
+          evicted_ppn = evicted_ppn / palparam->block;
+          evicted_plane = evicted_ppn % (palparam->plane * palparam->nandMultiapp);
+          evicted_ppn = evicted_ppn / (palparam->plane * palparam->nandMultiapp);
+          evicted_die = evicted_ppn % palparam->die;
+          evicted_ppn = evicted_ppn / palparam->die;
+          evicted_package = evicted_ppn % palparam->package;
+          evicted_ppn = evicted_ppn / palparam->package; 
+          evicted_channel = evicted_ppn % palparam->channel;
+          printf("flash_interface: Pagereg eviction @ ppn %lu\n", evicted_ppn);
+          uint64_t evictedTick =
+                    static_cast<unsigned long long>(m_cycle * 1000 / clock_freq);          
+          pHIL->schedulePPN(0, oper, evicted_offset, evicted_size, evicted_ppn, 
+            evicted_channel, evicted_package, evicted_die, evicted_plane, evicted_block,
+            evicted_page, evictedTick);
+
+        }
+      }
+      if (mem_req->m_dirty == 0){ //read
+        pHIL->schedulePPN(0, 0, (uint32_t &)request.offset, (uint32_t &)request.length, 
+            ppn, channel, package, die, plane, block, page, finishTick);
+        pageregInternal[reqPlaneIdx][candidateIdx].valid = true;
+        pageregInternal[reqPlaneIdx][candidateIdx].ppn = ppn;
+        pageregInternal[reqPlaneIdx][candidateIdx].page = reqPageIdx;
+        pageregInternal[reqPlaneIdx][candidateIdx].dirty = false;
+        pageregInternal[reqPlaneIdx][candidateIdx].available_time = finishTick;
+      }
+      else {
+        pageregInternal[reqPlaneIdx][candidateIdx].valid = true;
+        pageregInternal[reqPlaneIdx][candidateIdx].ppn = ppn;
+        pageregInternal[reqPlaneIdx][candidateIdx].page = reqPageIdx;
+        pageregInternal[reqPlaneIdx][candidateIdx].dirty = true;
+        pageregInternal[reqPlaneIdx][candidateIdx].available_time = finishTick;          
+      }
+    }
   }
-  else{
-    pHIL->read(mem_req->m_appl_id, request, finishTick);
-  }  
   finishTick = finishTick / 1000 * clock_freq;
   SimpleSSD::Logger::info("Request finished at %d cycle, delay %d cycle", 
                                   finishTick, finishTick - m_cycle);

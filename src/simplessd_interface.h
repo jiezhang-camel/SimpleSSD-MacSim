@@ -71,6 +71,11 @@ class flash_interface_c : public dram_c {
                                         uint64_t &finishTick);
   void FlashportGet(uint32_t Plane, uint64_t &finishTick);                                         
   void FlashportUpdate(uint32_t Plane, uint64_t &finishTick); 
+  uint32_t converttoPlaneIdx(uint32_t channel, uint32_t package,
+    uint32_t die, uint32_t plane);
+  uint32_t converttoDieIdx(uint32_t channel, uint32_t package,
+    uint32_t die); 
+  uint32_t converttoPackageIdx(uint32_t channel, uint32_t package);  
 
  private:
   float clock_freq;
