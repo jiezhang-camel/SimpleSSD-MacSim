@@ -17,6 +17,10 @@
 #include "simplessd/log/log.hh"
 
 #define DEBUG(args...) _DEBUG(*m_simBase->m_knobs->KNOB_DEBUG_DRAM, ##args)
+#define NO_NET 0
+#define FC_NET 1
+#define BUS_NET 2
+#define HB_NET 3
 
 dram_c *simplessd_interface(macsim_c *simBase) {
   dram_c *simplessd_interface_tmp = new simplessd_interface_c(simBase);
@@ -66,16 +70,173 @@ flash_interface_c::~flash_interface_c() {
   //delete pHIL;
   delete m_output_buffer;
   delete m_input_buffer;
+  if (palparam->pageReg != 0){
+    delete pageregInternal;
+  }
 }
 
 void simplessd_interface_c::init(int id) {
   m_id = id;
   pHIL->getLPNInfo(totalLogicalPages, logicalPageSize);
+  palparam = pHIL->getPALInfo();
 }
 
 void flash_interface_c::init(int id) {
   m_id = id;
   pHIL->getLPNInfo(totalLogicalPages, logicalPageSize);
+  palparam = pHIL->getPALInfo();
+  totalDie = palparam->channel * palparam->package * palparam->die;
+  totalPlane = palparam->channel * palparam->package * palparam->die * palparam->plane
+                * palparam->nandMultiapp;
+  // Initialize the page registers
+  if (palparam->pageReg != 0){
+    pageregInternal = new struct _pageregInternal *[totalPlane *
+                                  palparam->pageReg / palparam->pageRegAssoc];
+    for (unsigned i = 0; i < totalPlane* palparam->pageReg 
+                                  / palparam->pageRegAssoc; i++){
+      pageregInternal[i] = new struct _pageregInternal [palparam->pageRegAssoc];
+      for (unsigned j = 0; j < palparam->pageRegAssoc; j++)
+        pageregInternal[i][j].valid = false;
+    }
+  }
+  printf("pageReg %u pageRegAssoc %u slcBuffer %u regSwapper %u nandSplit %u\n",
+    palparam->pageReg, palparam->pageRegAssoc, palparam->slcBuffer, palparam->regSwapper,
+    palparam->nandSplit);
+  PackageIO = new priority_queue<uint64_t, vector<uint64_t>, greater<uint64_t>>[
+                    palparam->channel * palparam->package];
+  DieIO = new priority_queue<uint64_t, vector<uint64_t>, greater<uint64_t>> [
+                    totalDie];
+  PackageFlash = new priority_queue<uint64_t, vector<uint64_t>, greater<uint64_t>>[
+                    palparam->channel * palparam->package]; 
+  DieFlash = new priority_queue<uint64_t, vector<uint64_t>, greater<uint64_t>> [
+                    totalDie]; 
+  PlaneFlash = new priority_queue<uint64_t, vector<uint64_t>, greater<uint64_t>> [
+                    totalPlane];                    
+  for (int i = 0; i < palparam->channel * palparam->package; i++){
+    if (palparam->pageRegPort == HB_NET){
+      assert(palparam->die >= 8);
+      for (int j = 0; j < palparam->die/8; j++){
+        PackageIO[i].push(0);
+      }
+    }
+    else{
+      for (int j = 0; j < palparam->die; j++){
+        PackageIO[i].push(0);
+      }      
+    }
+    for (int j = 0; j < palparam->die; j++){      
+      PackageFlash[i].push(0);
+      PackageFlash[i].push(0);
+    }
+  }    
+  for (int i = 0; i < totalDie; i++){
+      DieIO[i].push(0);
+      for (int j = 0; j < palparam->plane * palparam->nandMultiapp; j++)
+        DieFlash[j].push(0);
+  }
+  for (int i = 0; i < totalPlane; i++){
+      PlaneFlash[i].push(0);
+  }  
+}
+
+bool flash_interface_c::FindCandidateSlot(struct _pageregInternal *pageregInternal,
+                               int &idx, uint32_t search_page) {
+  int invalid_idx = (uint32_t)-1;
+  int lru_idx = (uint32_t)-1;
+  uint64_t minTime = (uint64_t)-1;
+  // Find out hit slot
+  for (unsigned i = 0; i < palparam->pageRegAssoc; i++) {
+    if ((pageregInternal+i)->valid == true && 
+                        search_page == (pageregInternal+i)->page){
+      idx = i;
+      return true;
+    }
+    if ((pageregInternal+i)->valid == false){
+      invalid_idx = i;
+    }
+    else {
+      if (minTime == (uint64_t)-1){
+        minTime = (pageregInternal+i)->available_time;
+        lru_idx = i;
+      }
+      else{
+        if (minTime > (pageregInternal+i)->available_time){
+          minTime = (pageregInternal+i)->available_time;
+          lru_idx = i;
+        }
+      }      
+    }
+  }
+  if (invalid_idx != (uint32_t)-1){
+    idx = invalid_idx;
+    return false;
+  }
+  else{
+    idx = lru_idx;
+    return false;
+  }
+}
+
+void flash_interface_c::IOportAccess(uint32_t Package, uint32_t Die, 
+                                      uint64_t &finishTick){
+  if (palparam->pageRegPort == NO_NET) return;
+  if (palparam->pageRegPort == FC_NET){
+    uint64_t smallest = PackageIO[Package].top();
+    if (smallest <= finishTick) {
+      smallest = finishTick + 128*1000/1.6; 
+    }
+    else {
+      smallest += 128*1000/1.6;
+    }
+    finishTick = smallest;
+    PackageIO[Package].pop();
+    PackageIO[Package].push(smallest);        
+  }
+  if (palparam->pageRegPort == BUS_NET){
+    uint64_t smallest = DieIO[Die].top();
+    if (smallest <= finishTick) {
+      smallest = finishTick + 128*1000/1.6; 
+    }
+    else {
+      smallest += 128*1000/1.6;
+    }
+    finishTick = smallest;
+    DieIO[Die].pop();
+    DieIO[Die].push(smallest);        
+  }
+  if (palparam->pageRegPort == HB_NET){
+    uint64_t smallest;
+    if (PackageIO[Package].top() < DieIO[Die].top())
+      smallest = DieIO[Die].top();
+    else
+      smallest = PackageIO[Package].top();
+    if (smallest <= finishTick) {
+      smallest = finishTick + 128*1000/8/1.6; 
+    }
+    else {
+      smallest += 128*1000/8/1.6;
+    }
+    finishTick = smallest;      
+    PackageIO[Package].pop();
+    PackageIO[Package].push(smallest);      
+    DieIO[Die].pop();
+    DieIO[Die].push(smallest);           
+  }
+}
+
+void flash_interface_c::FlashportGet(uint32_t Plane, uint64_t &finishTick){
+  if (palparam->pageRegPort == NO_NET) return;
+    uint64_t smallest = PlaneFlash[Plane].top();
+  if (smallest <= finishTick) {
+    smallest = finishTick; 
+  }
+  finishTick = smallest;       
+}
+
+void flash_interface_c::FlashportUpdate(uint32_t Plane, uint64_t &finishTick){
+  if (palparam->pageRegPort == NO_NET) return;
+  PlaneFlash[Plane].pop();
+  PlaneFlash[Plane].push(finishTick);
 }
 
 void simplessd_interface_c::send(void) {
