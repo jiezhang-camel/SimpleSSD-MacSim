@@ -925,8 +925,7 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
     }
   }
   SimpleSSD::Logger::info("Request finished at %d cycle, delay %d cycle", 
-                                  finishTick, finishTick - m_cycle);
-  finishTick = m_cycle + 1;                                  
+                                  finishTick, finishTick - m_cycle);                                 
   while (1){
     auto iter = m_output_buffer->find(finishTick);
     if (iter != m_output_buffer->end()) finishTick++;
