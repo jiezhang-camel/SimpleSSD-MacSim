@@ -8,6 +8,7 @@
 #include <iostream>
 #include <list>
 #include <map>
+#include <set>
 #include <string>
 
 #include "dram.h"
@@ -70,14 +71,16 @@ class flash_interface_c : public dram_c {
     uint64_t StartTick;
     uint64_t EndTick;
   } TimeSlot;
-  list<TimeSlot> *IOportTimeSlot;
+  set<uint64_t> *IOportTimeSlot;
   void allocateIOport(int offset, int size, uint64_t &startTime, 
                                           uint64_t &finishTime);
   uint32_t converttoPlaneIdx(uint32_t channel, uint32_t package,
     uint32_t die, uint32_t plane);
   uint32_t converttoDieIdx(uint32_t channel, uint32_t package,
     uint32_t die); 
-  uint32_t converttoPackageIdx(uint32_t channel, uint32_t package);  
+  uint32_t converttoPackageIdx(uint32_t channel, uint32_t package); 
+  uint32_t cleanup_counter; 
+  void cleanIOPort();
 
  private:
   float clock_freq;

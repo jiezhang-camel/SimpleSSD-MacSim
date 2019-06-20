@@ -84,6 +84,7 @@ void simplessd_interface_c::init(int id) {
 
 void flash_interface_c::init(int id) {
   m_id = id;
+  cleanup_counter = 0;
   pHIL->getLPNInfo(totalLogicalPages, logicalPageSize);
   palparam = pHIL->getPALInfo();
   totalDie = palparam->channel * palparam->package * palparam->die;
@@ -96,8 +97,10 @@ void flash_interface_c::init(int id) {
     for (unsigned i = 0; i < totalPlane* palparam->pageReg 
                                   / palparam->pageRegAssoc; i++){
       pageregInternal[i] = new struct _pageregInternal [palparam->pageRegAssoc];
-      for (unsigned j = 0; j < palparam->pageRegAssoc; j++)
+      for (unsigned j = 0; j < palparam->pageRegAssoc; j++){
         pageregInternal[i][j].valid = false;
+        pageregInternal[i][j].available_time = 0;
+      }
     }
   }
   printf("pageReg %u pageRegAssoc %u slcBuffer %u regSwapper %u nandSplit %u\n",
@@ -112,9 +115,9 @@ void flash_interface_c::init(int id) {
   //     flashportAvailableTime[i] = 0;
   // }
   if (palparam->pageRegNet == NO_NET || palparam->pageRegNet == FC_NET) 
-    IOportTimeSlot = new list<TimeSlot>[palparam->channel * palparam->package * 2];
+    IOportTimeSlot = new set<uint64_t>[palparam->channel * palparam->package * 2];
   if (palparam->pageRegNet == HB_NET)
-    IOportTimeSlot = new list<TimeSlot>[palparam->channel * palparam->package];
+    IOportTimeSlot = new set<uint64_t>[palparam->channel * palparam->package];
 }
 
 bool flash_interface_c::FindCandidateSlot(struct _pageregInternal *pageregInternal,
@@ -606,46 +609,61 @@ uint32_t flash_interface_c::converttoPackageIdx(uint32_t channel, uint32_t packa
 void flash_interface_c::allocateIOport(int offset, int size, uint64_t &startTime, 
                                                         uint64_t &finishTime){
   int DMATime;
+  int iteration = 0;
   uint64_t candidateTime = (uint64_t)-1;
   if (palparam->pageRegNet == NO_NET || palparam->pageRegNet == FC_NET) 
     DMATime = size / 8;
   else DMATime = size / 8 / 2;
-  //clean up
-  for (auto iter = IOportTimeSlot[offset].begin(); iter != IOportTimeSlot[offset].end();){
-    if (iter->EndTick < m_cycle) iter = IOportTimeSlot[offset].erase(iter);
-    else break;
+  if (startTime % DMATime != 0) startTime = (startTime / DMATime + 1) * DMATime;
+  while (1){
+    iteration++;
+    auto iter = IOportTimeSlot[offset].find(startTime);
+    if (iter != IOportTimeSlot[offset].end()) startTime += DMATime;
+    else{
+      IOportTimeSlot[offset].insert(startTime);
+      break;
+    } 
   }
-  for (auto iter = IOportTimeSlot[offset].begin(); iter != IOportTimeSlot[offset].end();
-                                                    iter++ ){
-      if (candidateTime == (uint64_t)-1){
-        if (startTime >= iter->EndTick) candidateTime = startTime;
-        else candidateTime = iter->EndTick;
-      }            
-      else if (candidateTime != (uint64_t)-1 && candidateTime + DMATime > iter->StartTick){
-        if (startTime >= iter->EndTick) candidateTime = startTime;
-        else candidateTime = iter->EndTick; 
-      }
-      else{
-        TimeSlot newTS;
-        newTS.StartTick = candidateTime;
-        newTS.EndTick = candidateTime + DMATime;
-        IOportTimeSlot[offset].insert(iter, newTS);
-        finishTime = newTS.EndTick;
-        return;
-      } 
+  finishTime = startTime + DMATime;
+  printf("Jie: iteration %d\n", iteration);       
+}
+
+void flash_interface_c::cleanIOPort(){
+  int numIOPort, numReg;
+  if (palparam->pageRegNet == NO_NET || palparam->pageRegNet == FC_NET){
+    numIOPort = palparam->channel * palparam->package * 2;
+    numReg = totalPlane * palparam->pageReg / numIOPort;
+  }     
+  else{
+    numIOPort = palparam->channel * palparam->package;
+    numReg = totalPlane * palparam->pageReg / numIOPort;
+  } 
+  for (auto i = 0; i < numIOPort; i++){
+    uint64_t minTime = (uint64_t)-1;
+    // for (auto j = i * numReg; j < (i+1) * numReg; j++){
+    //   if (minTime == (uint64_t)-1)
+    //     minTime = ((*pageregInternal)+j)->available_time;
+    //   else if (minTime > ((*pageregInternal)+j)->available_time)
+    //     minTime = ((*pageregInternal)+j)->available_time;
+    // }
+    // printf("m_cycle %lu minTime %lu\n", m_cycle, minTime); 
+    // if (minTime < m_cycle) minTime = m_cycle;
+    minTime = m_cycle;
+    for (auto iter = IOportTimeSlot[i].begin(); iter != IOportTimeSlot[i].end();){
+      if (*iter < minTime) iter = IOportTimeSlot[i].erase(iter);
+      else break;
+    }    
   }
-  if (candidateTime == (uint64_t)-1){
-    candidateTime = startTime;  
-  }
-  TimeSlot newTS;
-  newTS.StartTick = candidateTime;
-  newTS.EndTick = candidateTime + DMATime;
-  IOportTimeSlot[offset].push_back(newTS);
-  finishTime = newTS.EndTick;       
+
 }
 
 bool flash_interface_c::insert_new_req(unsigned long long &finishTime, 
                                              mem_req_s *mem_req) {
+  cleanup_counter++;
+  if (cleanup_counter == 1000){
+    cleanup_counter = 0;
+    cleanIOPort();
+  }                                             
   SimpleSSD::ICL::Request request;
   request.reqID = mem_req->m_id;
   request.offset = mem_req->m_addr % logicalPageSize;
@@ -908,6 +926,7 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
   }
   SimpleSSD::Logger::info("Request finished at %d cycle, delay %d cycle", 
                                   finishTick, finishTick - m_cycle);
+  finishTick = m_cycle + 1;                                  
   while (1){
     auto iter = m_output_buffer->find(finishTick);
     if (iter != m_output_buffer->end()) finishTick++;
