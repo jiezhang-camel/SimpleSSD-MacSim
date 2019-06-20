@@ -21,6 +21,7 @@
 #define FC_NET 1
 #define BUS_NET 2
 #define HB_NET 3
+#define tBUSY 3000 * 1.6
 
 dram_c *simplessd_interface(macsim_c *simBase) {
   dram_c *simplessd_interface_tmp = new simplessd_interface_c(simBase);
@@ -102,141 +103,114 @@ void flash_interface_c::init(int id) {
   printf("pageReg %u pageRegAssoc %u slcBuffer %u regSwapper %u nandSplit %u\n",
     palparam->pageReg, palparam->pageRegAssoc, palparam->slcBuffer, palparam->regSwapper,
     palparam->nandSplit);
-  PackageIO = new priority_queue<uint64_t, vector<uint64_t>, greater<uint64_t>>[
-                    palparam->channel * palparam->package];
-  DieIO = new priority_queue<uint64_t, vector<uint64_t>, greater<uint64_t>> [
-                    totalDie];
-  PackageFlash = new priority_queue<uint64_t, vector<uint64_t>, greater<uint64_t>>[
-                    palparam->channel * palparam->package]; 
-  DieFlash = new priority_queue<uint64_t, vector<uint64_t>, greater<uint64_t>> [
-                    totalDie]; 
-  PlaneFlash = new priority_queue<uint64_t, vector<uint64_t>, greater<uint64_t>> [
-                    totalPlane];                    
-  for (int i = 0; i < palparam->channel * palparam->package; i++){
-    if (palparam->pageRegPort == HB_NET){
-      assert(palparam->die >= 8);
-      for (int j = 0; j < palparam->die/8; j++){
-        PackageIO[i].push(0);
-      }
-    }
-    else{
-      for (int j = 0; j < palparam->die; j++){
-        PackageIO[i].push(0);
-      }      
-    }
-    for (int j = 0; j < palparam->die; j++){      
-      PackageFlash[i].push(0);
-      PackageFlash[i].push(0);
-    }
-  }    
-  for (int i = 0; i < totalDie; i++){
-      DieIO[i].push(0);
-      for (int j = 0; j < palparam->plane * palparam->nandMultiapp; j++)
-        DieFlash[j].push(0);
-  }
-  for (int i = 0; i < totalPlane; i++){
-      PlaneFlash[i].push(0);
-  }  
+  planeAvailableTime = new uint64_t[totalPlane];
+  for (unsigned i = 0; i < totalPlane; i++)
+    planeAvailableTime[i] = 0;
+  // if (palparam->pageRegNet == HB_NET){
+  //   flashportAvailableTime = new uint64_t[totalPlane];
+  //   for (unsigned i = 0; i < totalPlane; i++)
+  //     flashportAvailableTime[i] = 0;
+  // }
+  if (palparam->pageRegNet == NO_NET || palparam->pageRegNet == FC_NET) 
+    IOportTimeSlot = new list<TimeSlot>[palparam->channel * palparam->package * 2];
+  if (palparam->pageRegNet == HB_NET)
+    IOportTimeSlot = new list<TimeSlot>[palparam->channel * palparam->package];
 }
 
 bool flash_interface_c::FindCandidateSlot(struct _pageregInternal *pageregInternal,
-                               int &idx, uint32_t search_page) {
-  int invalid_idx = (uint32_t)-1;
-  int lru_idx = (uint32_t)-1;
-  uint64_t minTime = (uint64_t)-1;
+                    int &cache_idx, int &data_idx, uint32_t search_page, bool isWrite) {
+  int cache_invalid_idx = (uint32_t)-1;
+  int cache_lru_idx = (uint32_t)-1;
+  uint64_t cache_minTime = (uint64_t)-1;
+  int data_invalid_idx = (uint32_t)-1;
+  int data_lru_idx = (uint32_t)-1;
+  uint64_t data_minTime = (uint64_t)-1;
   // Find out hit slot
-  for (unsigned i = 0; i < palparam->pageRegAssoc; i++) {
-    if ((pageregInternal+i)->valid == true && 
-                        search_page == (pageregInternal+i)->page){
-      idx = i;
-      return true;
-    }
-    if ((pageregInternal+i)->valid == false){
-      invalid_idx = i;
-    }
-    else {
-      if (minTime == (uint64_t)-1){
-        minTime = (pageregInternal+i)->available_time;
-        lru_idx = i;
+  if (isWrite == 0){ //read
+    for (unsigned i = 0; i < palparam->readReg; i++) {
+      if ((pageregInternal+i)->valid == true && 
+                          search_page == (pageregInternal+i)->page){
+        data_idx = i;
+        return true;
       }
-      else{
-        if (minTime > (pageregInternal+i)->available_time){
-          minTime = (pageregInternal+i)->available_time;
-          lru_idx = i;
+      if ((pageregInternal+i)->valid == false){
+        data_invalid_idx = i;
+      }
+      else {
+        if (data_minTime == (uint64_t)-1){
+          data_minTime = (pageregInternal+i)->available_time;
+          data_lru_idx = i;
         }
-      }      
+        else{
+          if (data_minTime > (pageregInternal+i)->available_time){
+            data_minTime = (pageregInternal+i)->available_time;
+            data_lru_idx = i;
+          }
+        }      
+      }
+    }
+    if (data_invalid_idx != (uint32_t)-1){
+      data_idx = data_invalid_idx;
+      return false;
+    }
+    else{
+      data_idx = data_lru_idx;
+      return false;
     }
   }
-  if (invalid_idx != (uint32_t)-1){
-    idx = invalid_idx;
-    return false;
-  }
-  else{
-    idx = lru_idx;
-    return false;
-  }
-}
-
-void flash_interface_c::IOportAccess(uint32_t Package, uint32_t Die, 
-                                      uint64_t &finishTick){
-  if (palparam->pageRegPort == NO_NET) return;
-  if (palparam->pageRegPort == FC_NET){
-    uint64_t smallest = PackageIO[Package].top();
-    if (smallest <= finishTick) {
-      smallest = finishTick + 128*1000/1.6; 
+  else{ //write
+    for (unsigned i = palparam->readReg; i < palparam->pageRegAssoc; i++) {
+      if ((pageregInternal+i)->valid == true && 
+                          search_page == (pageregInternal+i)->page){
+        cache_idx = i;
+        return true;
+      }
+      if ((pageregInternal+i)->valid == false){
+        cache_invalid_idx = i;
+      }
+      else {
+        if (cache_minTime == (uint64_t)-1){
+          cache_minTime = (pageregInternal+i)->available_time;
+          cache_lru_idx = i;
+        }
+        else{
+          if (cache_minTime > (pageregInternal+i)->available_time){
+            cache_minTime = (pageregInternal+i)->available_time;
+            cache_lru_idx = i;
+          }
+        }      
+      }
     }
-    else {
-      smallest += 128*1000/1.6;
+    if (cache_invalid_idx != (uint32_t)-1){
+      cache_idx = cache_invalid_idx;
+      return false;
     }
-    finishTick = smallest;
-    PackageIO[Package].pop();
-    PackageIO[Package].push(smallest);        
+    else{
+      cache_idx = cache_lru_idx;
+      for (unsigned i = 0; i < palparam->readReg; i++){
+        if ((pageregInternal+i)->valid == false){
+          data_invalid_idx = i;
+        }
+        else {
+          if (data_minTime == (uint64_t)-1){
+            data_minTime = (pageregInternal+i)->available_time;
+            data_lru_idx = i;
+          }
+          else{
+            if (data_minTime > (pageregInternal+i)->available_time){
+              data_minTime = (pageregInternal+i)->available_time;
+              data_lru_idx = i;
+            }
+          }      
+        }        
+      }
+      if (data_invalid_idx != (uint32_t)-1)
+        data_idx = data_invalid_idx;
+      else
+        data_idx = data_lru_idx;
+      return false;
+    }    
   }
-  if (palparam->pageRegPort == BUS_NET){
-    uint64_t smallest = DieIO[Die].top();
-    if (smallest <= finishTick) {
-      smallest = finishTick + 128*1000/1.6; 
-    }
-    else {
-      smallest += 128*1000/1.6;
-    }
-    finishTick = smallest;
-    DieIO[Die].pop();
-    DieIO[Die].push(smallest);        
-  }
-  if (palparam->pageRegPort == HB_NET){
-    uint64_t smallest;
-    if (PackageIO[Package].top() < DieIO[Die].top())
-      smallest = DieIO[Die].top();
-    else
-      smallest = PackageIO[Package].top();
-    if (smallest <= finishTick) {
-      smallest = finishTick + 128*1000/8/1.6; 
-    }
-    else {
-      smallest += 128*1000/8/1.6;
-    }
-    finishTick = smallest;      
-    PackageIO[Package].pop();
-    PackageIO[Package].push(smallest);      
-    DieIO[Die].pop();
-    DieIO[Die].push(smallest);           
-  }
-}
-
-void flash_interface_c::FlashportGet(uint32_t Plane, uint64_t &finishTick){
-  if (palparam->pageRegPort == NO_NET) return;
-    uint64_t smallest = PlaneFlash[Plane].top();
-  if (smallest <= finishTick) {
-    smallest = finishTick; 
-  }
-  finishTick = smallest;       
-}
-
-void flash_interface_c::FlashportUpdate(uint32_t Plane, uint64_t &finishTick){
-  if (palparam->pageRegPort == NO_NET) return;
-  PlaneFlash[Plane].pop();
-  PlaneFlash[Plane].push(finishTick);
 }
 
 void simplessd_interface_c::send(void) {
@@ -629,6 +603,47 @@ uint32_t flash_interface_c::converttoPackageIdx(uint32_t channel, uint32_t packa
   return ret;
 }
 
+void flash_interface_c::allocateIOport(int offset, int size, uint64_t &startTime, 
+                                                        uint64_t &finishTime){
+  int DMATime;
+  uint64_t candidateTime = (uint64_t)-1;
+  if (palparam->pageRegNet == NO_NET || palparam->pageRegNet == FC_NET) 
+    DMATime = size / 8;
+  else DMATime = size / 8 / 2;
+  //clean up
+  for (auto iter = IOportTimeSlot[offset].begin(); iter != IOportTimeSlot[offset].end();){
+    if (iter->EndTick < m_cycle) iter = IOportTimeSlot[offset].erase(iter);
+    else break;
+  }
+  for (auto iter = IOportTimeSlot[offset].begin(); iter != IOportTimeSlot[offset].end();
+                                                    iter++ ){
+      if (candidateTime == (uint64_t)-1){
+        if (startTime >= iter->EndTick) candidateTime = startTime;
+        else candidateTime = iter->EndTick;
+      }            
+      else if (candidateTime != (uint64_t)-1 && candidateTime + DMATime > iter->StartTick){
+        if (startTime >= iter->EndTick) candidateTime = startTime;
+        else candidateTime = iter->EndTick; 
+      }
+      else{
+        TimeSlot newTS;
+        newTS.StartTick = candidateTime;
+        newTS.EndTick = candidateTime + DMATime;
+        IOportTimeSlot[offset].insert(iter, newTS);
+        finishTime = newTS.EndTick;
+        return;
+      } 
+  }
+  if (candidateTime == (uint64_t)-1){
+    candidateTime = startTime;  
+  }
+  TimeSlot newTS;
+  newTS.StartTick = candidateTime;
+  newTS.EndTick = candidateTime + DMATime;
+  IOportTimeSlot[offset].push_back(newTS);
+  finishTime = newTS.EndTick;       
+}
+
 bool flash_interface_c::insert_new_req(unsigned long long &finishTime, 
                                              mem_req_s *mem_req) {
   SimpleSSD::ICL::Request request;
@@ -638,9 +653,7 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
   request.range.slpn = mem_req->m_addr / logicalPageSize;
   request.range.nlp = (mem_req->m_size + request.offset + logicalPageSize - 1) /
                       logicalPageSize;
-                      
-  uint64_t finishTick =
-      static_cast<unsigned long long>(m_cycle * 1000 / clock_freq);
+  uint64_t finishTick = m_cycle;                    
   uint32_t ppn;
   uint32_t channel;
   uint32_t package;
@@ -649,10 +662,15 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
   uint32_t block;
   uint32_t page;
   uint32_t destPlane = (uint32_t)-1;
-  SimpleSSD::Logger::info("Request %d arrived at %d cycle (%" PRIu64 " ps)",
-                        request.reqID, m_cycle, finishTick);
-  pHIL->collectPPN(mem_req->m_appl_id, request, ppn, channel, package,  
+  SimpleSSD::Logger::info("Request %d arrived at %d cycle",
+                        request.reqID, m_cycle);
+  if (mem_req->m_dirty == 0)
+    pHIL->collectPPN(mem_req->m_appl_id, request, ppn, channel, package,  
                           die, plane, block, page, finishTick);
+  else
+    pHIL->allocatePPN(mem_req->m_appl_id, request, ppn, channel, package,  
+                          die, plane, block, page, finishTick);
+  assert(finishTick == m_cycle);
   if (mem_req->m_dirty)
     printf("Jie: write lpn %lu ppn %u channel %u package %u die %u plane %u \
               block %u page %u\n", request.range.slpn, ppn, channel, package,
@@ -674,24 +692,142 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
   reqPlaneIdx = reqPlaneIdx*palparam->pageReg / palparam->pageRegAssoc;
   uint32_t reqPageIdx = ppn;
   if (palparam->pageReg != 0){
-    int candidateIdx = 0;
-    if (FindCandidateSlot(pageregInternal[reqPlaneIdx], candidateIdx,
-                                                            reqPageIdx)){
-      printf("flash_interface: Pagereg hit @ index %d\n", candidateIdx);
-      uint64_t tmp_arrivedtime = finishTick;
+    int candidateCacheIdx = -1, candidateDataIdx = -1;
+    if (FindCandidateSlot(pageregInternal[reqPlaneIdx], candidateCacheIdx,
+                          candidateDataIdx, reqPageIdx, mem_req->m_dirty)){
+      if (mem_req->m_dirty == 0)
+        printf("flash_interface: Pagereg hit @ index %d\n", candidateDataIdx);
+      else
+        printf("flash_interface: Pagereg hit @ index %d\n", candidateCacheIdx);
+      uint64_t availableTime;
+      if (mem_req->m_dirty == 0){
+        assert(candidateCacheIdx == -1);
+        assert(pageregInternal[reqPlaneIdx][candidateDataIdx].valid);
+        if (m_cycle > pageregInternal[reqPlaneIdx][candidateDataIdx].available_time){
+          availableTime = m_cycle;
+        }
+        else availableTime = pageregInternal[reqPlaneIdx][candidateDataIdx].available_time;
+      }
+      else{
+        assert(candidateDataIdx == -1);
+        assert(pageregInternal[reqPlaneIdx][candidateCacheIdx].valid);
+        if ( m_cycle > pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time){
+          availableTime = m_cycle;
+        }
+        else availableTime = pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time;
+      } 
+      switch (palparam->pageRegNet) {
+        case NO_NET:
+          allocateIOport( 
+                converttoPackageIdx(channel, package) * 2 +
+                converttoPlaneIdx(channel, package, die, plane) % 2,
+                        mem_req->m_size, availableTime, finishTick);
+          break;
+        case FC_NET:
+          allocateIOport( 
+                converttoPackageIdx(channel, package) * 2 +
+                converttoPlaneIdx(channel, package, die, plane) % 2,
+                mem_req->m_size, availableTime, finishTick);        
+          break;
+        case HB_NET:
+          allocateIOport( 
+                converttoPackageIdx(channel, package),
+                mem_req->m_size, availableTime, finishTick);       
+          break;
+        default:
+          printf("Wrong option for pageRegNet!\n");
+          assert(0);
+      }    
+        
       if (mem_req->m_dirty == 0){ //read operation
-        pageregInternal[reqPlaneIdx][candidateIdx].available_time = finishTick;
+        pageregInternal[reqPlaneIdx][candidateDataIdx].available_time = finishTick;
       }
       else { // write operation
-        pageregInternal[reqPlaneIdx][candidateIdx].dirty = true;
-        pageregInternal[reqPlaneIdx][candidateIdx].available_time = finishTick;
+        pageregInternal[reqPlaneIdx][candidateCacheIdx].dirty = true;
+        pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time = finishTick;
       }
       //printf("Janalysis: flash latency %lu\n",0);
     }
     else { // no page registers hit
-      printf("flash_interface: Pagereg miss @ index %d\n", candidateIdx);
-      if (pageregInternal[reqPlaneIdx][candidateIdx].valid){ // conflict miss
-        if (pageregInternal[reqPlaneIdx][candidateIdx].dirty){ // need to evict
+      if (mem_req->m_dirty == 0)
+        printf("flash_interface: Pagereg miss @ index %d\n", candidateDataIdx);
+      else printf("flash_interface: Pagereg miss @ index %d\n", candidateCacheIdx);
+      uint64_t availableTime;
+      if (mem_req->m_dirty == 0){
+        assert(candidateCacheIdx == -1);
+        if (m_cycle > pageregInternal[reqPlaneIdx][candidateDataIdx].available_time){
+          availableTime = m_cycle;
+        }
+        else availableTime = pageregInternal[reqPlaneIdx][candidateDataIdx].available_time; 
+        if (availableTime < planeAvailableTime[converttoPlaneIdx(channel, package, die, plane)])
+          availableTime = planeAvailableTime[converttoPlaneIdx(channel, package, die, plane)];
+        availableTime = static_cast<unsigned long long>(availableTime * 1000 / clock_freq);        
+        pHIL->schedulePPN(0, 0, (uint32_t &)request.offset, (uint32_t &)request.length, 
+            ppn, channel, package, die, plane, block, page, availableTime);
+        availableTime = availableTime / 1000 * clock_freq;
+        planeAvailableTime[converttoPlaneIdx(channel, package, die, plane)] = availableTime;
+        switch (palparam->pageRegNet) {
+          case NO_NET:
+            allocateIOport( 
+                  converttoPackageIdx(channel, package) * 2 +
+                  converttoPlaneIdx(channel, package, die, plane) % 2,
+                          mem_req->m_size, availableTime, finishTick);
+            break;
+          case FC_NET:
+            allocateIOport( 
+                  converttoPackageIdx(channel, package) * 2 +
+                  converttoPlaneIdx(channel, package, die, plane) % 2,
+                  mem_req->m_size, availableTime, finishTick);        
+            break;
+          case HB_NET:
+            allocateIOport( 
+                  converttoPackageIdx(channel, package),
+                  mem_req->m_size, availableTime, finishTick);       
+            break;
+          default:
+            printf("Wrong option for pageRegNet!\n");
+            assert(0);
+        } 
+        pageregInternal[reqPlaneIdx][candidateDataIdx].valid = true;
+        pageregInternal[reqPlaneIdx][candidateDataIdx].ppn = ppn;
+        pageregInternal[reqPlaneIdx][candidateDataIdx].page = reqPageIdx;
+        pageregInternal[reqPlaneIdx][candidateDataIdx].dirty = false;
+        pageregInternal[reqPlaneIdx][candidateDataIdx].available_time = finishTick;               
+      }
+      else{
+        if (pageregInternal[reqPlaneIdx][candidateCacheIdx].valid &&  //need to evict dirty page
+                                pageregInternal[reqPlaneIdx][candidateCacheIdx].dirty){
+          if (m_cycle > pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time){
+            availableTime = m_cycle;
+          }
+          else availableTime = pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time;
+          if (availableTime < pageregInternal[reqPlaneIdx][candidateDataIdx].available_time)
+            availableTime = pageregInternal[reqPlaneIdx][candidateDataIdx].available_time;
+          availableTime += tBUSY;
+          switch (palparam->pageRegNet) {
+            case NO_NET:
+              allocateIOport( 
+                    converttoPackageIdx(channel, package) * 2 +
+                    converttoPlaneIdx(channel, package, die, plane) % 2,
+                            mem_req->m_size, availableTime, finishTick);
+              break;
+            case FC_NET:
+              allocateIOport( 
+                    converttoPackageIdx(channel, package) * 2 +
+                    converttoPlaneIdx(channel, package, die, plane) % 2,
+                    mem_req->m_size, availableTime, finishTick);        
+              break;
+            case HB_NET:
+              allocateIOport( 
+                    converttoPackageIdx(channel, package),
+                    mem_req->m_size, availableTime, finishTick);       
+              break;
+            default:
+              printf("Wrong option for pageRegNet!\n");
+              assert(0);
+          }
+          if (availableTime < planeAvailableTime[converttoPlaneIdx(channel, package, die, plane)])
+            availableTime = planeAvailableTime[converttoPlaneIdx(channel, package, die, plane)];          
           uint32_t evicted_ppn;
           uint32_t evicted_channel;
           uint32_t evicted_package;
@@ -703,7 +839,7 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
           uint32_t evicted_size = 4096;
           bool oper;
           oper = 1; //write
-          evicted_ppn = pageregInternal[reqPlaneIdx][candidateIdx].page;
+          evicted_ppn = pageregInternal[reqPlaneIdx][candidateCacheIdx].page;
           evicted_page = evicted_ppn % palparam->page;
           evicted_ppn = evicted_ppn / palparam->page;
           evicted_block = evicted_ppn % palparam->block;
@@ -715,34 +851,61 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
           evicted_package = evicted_ppn % palparam->package;
           evicted_ppn = evicted_ppn / palparam->package; 
           evicted_channel = evicted_ppn % palparam->channel;
-          printf("flash_interface: Pagereg eviction @ ppn %lu\n", evicted_ppn);
-          uint64_t evictedTick =
-                    static_cast<unsigned long long>(m_cycle * 1000 / clock_freq);          
+          printf("flash_interface: Pagereg eviction @ ppn %u\n", evicted_ppn);
+          availableTime =
+                    static_cast<unsigned long long>(availableTime * 1000 / clock_freq);          
           pHIL->schedulePPN(0, oper, evicted_offset, evicted_size, evicted_ppn, 
             evicted_channel, evicted_package, evicted_die, evicted_plane, evicted_block,
-            evicted_page, evictedTick);
-
+            evicted_page, availableTime);
+          availableTime = availableTime / 1000 * clock_freq;
+          pageregInternal[reqPlaneIdx][candidateDataIdx].valid = false;
+          pageregInternal[reqPlaneIdx][candidateDataIdx].ppn = 0;
+          pageregInternal[reqPlaneIdx][candidateDataIdx].page = 0;
+          pageregInternal[reqPlaneIdx][candidateDataIdx].dirty = false;
+          pageregInternal[reqPlaneIdx][candidateDataIdx].available_time = availableTime; 
+          planeAvailableTime[converttoPlaneIdx(channel, package, die, plane)] = availableTime;          
+          pageregInternal[reqPlaneIdx][candidateCacheIdx].valid = true;
+          pageregInternal[reqPlaneIdx][candidateCacheIdx].ppn = ppn;
+          pageregInternal[reqPlaneIdx][candidateCacheIdx].page = reqPageIdx;
+          pageregInternal[reqPlaneIdx][candidateCacheIdx].dirty = true;
+          pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time = finishTick; 
         }
-      }
-      if (mem_req->m_dirty == 0){ //read
-        pHIL->schedulePPN(0, 0, (uint32_t &)request.offset, (uint32_t &)request.length, 
-            ppn, channel, package, die, plane, block, page, finishTick);
-        pageregInternal[reqPlaneIdx][candidateIdx].valid = true;
-        pageregInternal[reqPlaneIdx][candidateIdx].ppn = ppn;
-        pageregInternal[reqPlaneIdx][candidateIdx].page = reqPageIdx;
-        pageregInternal[reqPlaneIdx][candidateIdx].dirty = false;
-        pageregInternal[reqPlaneIdx][candidateIdx].available_time = finishTick;
-      }
-      else {
-        pageregInternal[reqPlaneIdx][candidateIdx].valid = true;
-        pageregInternal[reqPlaneIdx][candidateIdx].ppn = ppn;
-        pageregInternal[reqPlaneIdx][candidateIdx].page = reqPageIdx;
-        pageregInternal[reqPlaneIdx][candidateIdx].dirty = true;
-        pageregInternal[reqPlaneIdx][candidateIdx].available_time = finishTick;          
+        else {
+          if (m_cycle > pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time){
+            availableTime = m_cycle;
+          }
+          else availableTime = pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time;
+          switch (palparam->pageRegNet) {
+            case NO_NET:
+              allocateIOport( 
+                    converttoPackageIdx(channel, package) * 2 +
+                    converttoPlaneIdx(channel, package, die, plane) % 2,
+                            mem_req->m_size, availableTime, finishTick);
+              break;
+            case FC_NET:
+              allocateIOport( 
+                    converttoPackageIdx(channel, package) * 2 +
+                    converttoPlaneIdx(channel, package, die, plane) % 2,
+                    mem_req->m_size, availableTime, finishTick);        
+              break;
+            case HB_NET:
+              allocateIOport( 
+                    converttoPackageIdx(channel, package),
+                    mem_req->m_size, availableTime, finishTick);       
+              break;
+            default:
+              printf("Wrong option for pageRegNet!\n");
+              assert(0);
+          }    
+          pageregInternal[reqPlaneIdx][candidateCacheIdx].valid = true;
+          pageregInternal[reqPlaneIdx][candidateCacheIdx].ppn = ppn;
+          pageregInternal[reqPlaneIdx][candidateCacheIdx].page = reqPageIdx;
+          pageregInternal[reqPlaneIdx][candidateCacheIdx].dirty = true;
+          pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time = finishTick;                  
+        }          
       }
     }
   }
-  finishTick = finishTick / 1000 * clock_freq;
   SimpleSSD::Logger::info("Request finished at %d cycle, delay %d cycle", 
                                   finishTick, finishTick - m_cycle);
   while (1){

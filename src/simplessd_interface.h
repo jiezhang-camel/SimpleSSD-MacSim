@@ -64,13 +64,15 @@ class flash_interface_c : public dram_c {
   };
   struct _pageregInternal **pageregInternal;
   bool FindCandidateSlot(struct _pageregInternal *pageregInternal, 
-                         int &idx, uint32_t search_page);
-  priority_queue<uint64_t, vector<uint64_t>, greater<uint64_t>>
-      *PackageIO, *DieIO, *PackageFlash, *DieFlash, *PlaneFlash;
-  void IOportAccess(uint32_t Package, uint32_t Die, 
-                                        uint64_t &finishTick);
-  void FlashportGet(uint32_t Plane, uint64_t &finishTick);                                         
-  void FlashportUpdate(uint32_t Plane, uint64_t &finishTick); 
+      int &cache_idx, int &data_idx, uint32_t search_page, bool isWrite);
+  uint64_t *planeAvailableTime, *flashportAvailableTime; 
+  typedef struct _TimeSlot{
+    uint64_t StartTick;
+    uint64_t EndTick;
+  } TimeSlot;
+  list<TimeSlot> *IOportTimeSlot;
+  void allocateIOport(int offset, int size, uint64_t &startTime, 
+                                          uint64_t &finishTime);
   uint32_t converttoPlaneIdx(uint32_t channel, uint32_t package,
     uint32_t die, uint32_t plane);
   uint32_t converttoDieIdx(uint32_t channel, uint32_t package,
