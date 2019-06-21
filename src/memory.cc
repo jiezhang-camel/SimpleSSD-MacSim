@@ -751,6 +751,10 @@ void dcu_c::process_in_queue() {
     Addr line_addr;
     dcache_data_s *line;
     bool cache_hit = false;
+    if (m_level == MEM_L3 && (req->m_type == MRT_WB || req->m_type == MRT_DSTORE)){
+      req->m_bypass = true;
+      req->m_dirty = true;
+    }
     if (m_level == MEM_L3 && req->m_bypass == true) {
       line = NULL;
       cache_hit = false;
@@ -969,7 +973,7 @@ void dcu_c::receive_packet(void) {
         insert_done = fill(req);
       }
       else if (req->m_msg_type == NOC_NEW ||
-               req->m_msg_type == NOC_NEW_WITH_DATA) {
+               req->m_msg_type == NOC_NEW_WITH_DATA) {                         
         insert_done = insert(req);
       }
       else {
