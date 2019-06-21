@@ -715,9 +715,9 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
     if (FindCandidateSlot(pageregInternal[reqPlaneIdx], candidateCacheIdx,
                           candidateDataIdx, reqPageIdx, mem_req->m_dirty)){
       if (mem_req->m_dirty == 0)
-        printf("flash_interface: Pagereg hit @ index %d\n", candidateDataIdx);
+        printf("flash_interface: Pagereg read hit @ index %d\n", candidateDataIdx);
       else
-        printf("flash_interface: Pagereg hit @ index %d\n", candidateCacheIdx);
+        printf("flash_interface: Pagereg write hit @ index %d\n", candidateCacheIdx);
       uint64_t availableTime;
       if (mem_req->m_dirty == 0){
         assert(candidateCacheIdx == -1);
@@ -769,8 +769,8 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
     }
     else { // no page registers hit
       if (mem_req->m_dirty == 0)
-        printf("flash_interface: Pagereg miss @ index %d\n", candidateDataIdx);
-      else printf("flash_interface: Pagereg miss @ index %d\n", candidateCacheIdx);
+        printf("flash_interface: Pagereg read miss @ index %d\n", candidateDataIdx);
+      else printf("flash_interface: Pagereg write miss @ index %d\n", candidateCacheIdx);
       uint64_t availableTime;
       if (mem_req->m_dirty == 0){
         assert(candidateCacheIdx == -1);
