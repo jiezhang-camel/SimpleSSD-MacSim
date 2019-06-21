@@ -376,8 +376,8 @@ void simplessd_interface_c::receive(void) {
     // Janalysis
     // req->m_in = m_cycle;
     //cout << "Jie: receive "<< req->m_id << endl;
-    if (req->m_dirty) cout << "Jie: write request " << req->m_id << " type " << req->m_type << endl;
-    else cout << "Jie: read request " << req->m_id << " type " << req->m_type << endl;
+    // if (req->m_dirty) cout << "Jie: write request " << req->m_id << " type " << req->m_type << endl;
+    // else cout << "Jie: read request " << req->m_id << " type " << req->m_type << endl;
     SimpleSSD::ICL::Request request;
     request.reqID = req->m_id;
     request.offset = req->m_addr % logicalPageSize;
@@ -670,7 +670,8 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
   request.range.slpn = mem_req->m_addr / logicalPageSize;
   request.range.nlp = (mem_req->m_size + request.offset + logicalPageSize - 1) /
                       logicalPageSize;
-  uint64_t finishTick = m_cycle;                    
+  uint64_t finishTick = m_cycle;    
+  uint64_t availableTime = m_cycle;                
   uint32_t ppn;
   uint32_t channel;
   uint32_t package;
@@ -682,14 +683,13 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
   SimpleSSD::Logger::info("Request %d arrived at %d cycle",
                         request.reqID, m_cycle);                      
   pHIL->collectPPN(mem_req->m_appl_id, request, ppn, channel, package,  
-                        die, plane, block, page, finishTick);
+                        die, plane, block, page, availableTime);
   // if (mem_req->m_dirty == 0)
   //   pHIL->collectPPN(mem_req->m_appl_id, request, ppn, channel, package,  
   //                         die, plane, block, page, finishTick);
   // else
   //   pHIL->allocatePPN(mem_req->m_appl_id, request, ppn, channel, package,  
   //                         die, plane, block, page, finishTick);
-  assert(finishTick == m_cycle);
   if (mem_req->m_dirty)
     printf("Jie: write lpn %lu ppn %u channel %u package %u die %u plane %u \
               block %u page %u\n", request.range.slpn, ppn, channel, package,
@@ -717,23 +717,18 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
       if (mem_req->m_dirty == 0)
         printf("flash_interface: Pagereg read hit @ index %d\n", candidateDataIdx);
       else
-        printf("flash_interface: Pagereg write hit @ index %d\n", candidateCacheIdx);
-      uint64_t availableTime;
+        printf("flash_interface: Pagereg write hit @ index %d\n", candidateCacheIdx);      
       if (mem_req->m_dirty == 0){
         assert(candidateCacheIdx == -1);
         assert(pageregInternal[reqPlaneIdx][candidateDataIdx].valid);
-        if (m_cycle > pageregInternal[reqPlaneIdx][candidateDataIdx].available_time){
-          availableTime = m_cycle;
-        }
-        else availableTime = pageregInternal[reqPlaneIdx][candidateDataIdx].available_time;
+        if (availableTime < pageregInternal[reqPlaneIdx][candidateDataIdx].available_time)
+          availableTime = pageregInternal[reqPlaneIdx][candidateDataIdx].available_time;
       }
       else{
         assert(candidateDataIdx == -1);
         assert(pageregInternal[reqPlaneIdx][candidateCacheIdx].valid);
-        if ( m_cycle > pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time){
-          availableTime = m_cycle;
-        }
-        else availableTime = pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time;
+        if ( availableTime < pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time)
+          availableTime = pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time;
       } 
       switch (palparam->pageRegNet) {
         case NO_NET:
@@ -771,13 +766,10 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
       if (mem_req->m_dirty == 0)
         printf("flash_interface: Pagereg read miss @ index %d\n", candidateDataIdx);
       else printf("flash_interface: Pagereg write miss @ index %d\n", candidateCacheIdx);
-      uint64_t availableTime;
       if (mem_req->m_dirty == 0){
         assert(candidateCacheIdx == -1);
-        if (m_cycle > pageregInternal[reqPlaneIdx][candidateDataIdx].available_time){
-          availableTime = m_cycle;
-        }
-        else availableTime = pageregInternal[reqPlaneIdx][candidateDataIdx].available_time; 
+        if (availableTime < pageregInternal[reqPlaneIdx][candidateDataIdx].available_time)
+          availableTime = pageregInternal[reqPlaneIdx][candidateDataIdx].available_time; 
         if (availableTime < planeAvailableTime[converttoPlaneIdx(channel, package, die, plane)])
           availableTime = planeAvailableTime[converttoPlaneIdx(channel, package, die, plane)];
         availableTime = static_cast<unsigned long long>(availableTime * 1000 / clock_freq);        
@@ -816,27 +808,29 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
       else{
         if (pageregInternal[reqPlaneIdx][candidateCacheIdx].valid &&  //need to evict dirty page
                                 pageregInternal[reqPlaneIdx][candidateCacheIdx].dirty){
-          if (m_cycle > pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time){
-            availableTime = m_cycle;
-          }
-          else availableTime = pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time;
-          if (availableTime < pageregInternal[reqPlaneIdx][candidateDataIdx].available_time)
-            availableTime = pageregInternal[reqPlaneIdx][candidateDataIdx].available_time;
-          availableTime += tBUSY;
           switch (palparam->pageRegNet) {
             case NO_NET:
+              if (availableTime < pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time)
+                availableTime = pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time;
+              if (availableTime < pageregInternal[reqPlaneIdx][candidateDataIdx].available_time)
+                availableTime = pageregInternal[reqPlaneIdx][candidateDataIdx].available_time;
+              availableTime += tBUSY;            
               allocateIOport( 
                     converttoPackageIdx(channel, package) * 2 +
                     converttoPlaneIdx(channel, package, die, plane) % 2,
                             mem_req->m_size, availableTime, finishTick);
               break;
             case FC_NET:
+              if (availableTime < pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time)
+                availableTime = pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time;            
               allocateIOport( 
                     converttoPackageIdx(channel, package) * 2 +
                     converttoPlaneIdx(channel, package, die, plane) % 2,
                     mem_req->m_size, availableTime, finishTick);        
               break;
             case HB_NET:
+              if (availableTime < pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time)
+                availableTime = pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time;            
               allocateIOport( 
                     converttoPackageIdx(channel, package),
                     mem_req->m_size, availableTime, finishTick);       
@@ -879,23 +873,32 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
             evicted_channel, evicted_package, evicted_die, evicted_plane, evicted_block,
             evicted_page, availableTime);
           availableTime = availableTime / 1000 * clock_freq;
-          pageregInternal[reqPlaneIdx][candidateDataIdx].valid = false;
-          pageregInternal[reqPlaneIdx][candidateDataIdx].ppn = 0;
-          pageregInternal[reqPlaneIdx][candidateDataIdx].page = 0;
-          pageregInternal[reqPlaneIdx][candidateDataIdx].dirty = false;
-          pageregInternal[reqPlaneIdx][candidateDataIdx].available_time = availableTime; 
-          planeAvailableTime[converttoPlaneIdx(channel, package, die, plane)] = availableTime;          
-          pageregInternal[reqPlaneIdx][candidateCacheIdx].valid = true;
-          pageregInternal[reqPlaneIdx][candidateCacheIdx].ppn = ppn;
-          pageregInternal[reqPlaneIdx][candidateCacheIdx].page = reqPageIdx;
-          pageregInternal[reqPlaneIdx][candidateCacheIdx].dirty = true;
-          pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time = finishTick; 
+          if (palparam->pageRegNet == NO_NET){
+            pageregInternal[reqPlaneIdx][candidateDataIdx].valid = false;
+            pageregInternal[reqPlaneIdx][candidateDataIdx].ppn = 0;
+            pageregInternal[reqPlaneIdx][candidateDataIdx].page = 0;
+            pageregInternal[reqPlaneIdx][candidateDataIdx].dirty = false;
+            pageregInternal[reqPlaneIdx][candidateDataIdx].available_time = availableTime; 
+            planeAvailableTime[converttoPlaneIdx(channel, package, die, plane)] = availableTime;          
+            pageregInternal[reqPlaneIdx][candidateCacheIdx].valid = true;
+            pageregInternal[reqPlaneIdx][candidateCacheIdx].ppn = ppn;
+            pageregInternal[reqPlaneIdx][candidateCacheIdx].page = reqPageIdx;
+            pageregInternal[reqPlaneIdx][candidateCacheIdx].dirty = true;
+            pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time = finishTick; 
+          }
+          else {
+            planeAvailableTime[converttoPlaneIdx(channel, package, die, plane)] = availableTime;          
+            pageregInternal[reqPlaneIdx][candidateCacheIdx].valid = true;
+            pageregInternal[reqPlaneIdx][candidateCacheIdx].ppn = ppn;
+            pageregInternal[reqPlaneIdx][candidateCacheIdx].page = reqPageIdx;
+            pageregInternal[reqPlaneIdx][candidateCacheIdx].dirty = true;
+            pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time = availableTime;             
+          }
+
         }
         else {
-          if (m_cycle > pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time){
-            availableTime = m_cycle;
-          }
-          else availableTime = pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time;
+          if (availableTime > pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time)
+            availableTime = pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time;
           switch (palparam->pageRegNet) {
             case NO_NET:
               allocateIOport( 
