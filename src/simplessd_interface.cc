@@ -121,7 +121,7 @@ void flash_interface_c::init(int id) {
 }
 
 bool flash_interface_c::FindCandidateSlot(struct _pageregInternal *pageregInternal,
-                    int &cache_idx, int &data_idx, uint32_t search_page, bool isWrite) {
+                    int &cache_idx, int &data_idx, uint64_t search_page, bool isWrite) {
   int cache_invalid_idx = (uint32_t)-1;
   int cache_lru_idx = (uint32_t)-1;
   uint64_t cache_minTime = (uint64_t)-1;
@@ -376,6 +376,8 @@ void simplessd_interface_c::receive(void) {
     // Janalysis
     // req->m_in = m_cycle;
     //cout << "Jie: receive "<< req->m_id << endl;
+    if (req->m_dirty) cout << "Jie: write request " << req->m_id << " type " << req->m_type << endl;
+    else cout << "Jie: read request " << req->m_id << " type " << req->m_type << endl;
     SimpleSSD::ICL::Request request;
     request.reqID = req->m_id;
     request.offset = req->m_addr % logicalPageSize;
@@ -609,14 +611,12 @@ uint32_t flash_interface_c::converttoPackageIdx(uint32_t channel, uint32_t packa
 void flash_interface_c::allocateIOport(int offset, int size, uint64_t &startTime, 
                                                         uint64_t &finishTime){
   int DMATime;
-  int iteration = 0;
   uint64_t candidateTime = (uint64_t)-1;
   if (palparam->pageRegNet == NO_NET || palparam->pageRegNet == FC_NET) 
     DMATime = size / 8;
   else DMATime = size / 8 / 2;
   if (startTime % DMATime != 0) startTime = (startTime / DMATime + 1) * DMATime;
   while (1){
-    iteration++;
     auto iter = IOportTimeSlot[offset].find(startTime);
     if (iter != IOportTimeSlot[offset].end()) startTime += DMATime;
     else{
@@ -624,8 +624,7 @@ void flash_interface_c::allocateIOport(int offset, int size, uint64_t &startTime
       break;
     } 
   }
-  finishTime = startTime + DMATime;
-  printf("Jie: iteration %d\n", iteration);       
+  finishTime = startTime + DMATime;     
 }
 
 void flash_interface_c::cleanIOPort(){
@@ -681,13 +680,15 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
   uint32_t page;
   uint32_t destPlane = (uint32_t)-1;
   SimpleSSD::Logger::info("Request %d arrived at %d cycle",
-                        request.reqID, m_cycle);
-  if (mem_req->m_dirty == 0)
-    pHIL->collectPPN(mem_req->m_appl_id, request, ppn, channel, package,  
-                          die, plane, block, page, finishTick);
-  else
-    pHIL->allocatePPN(mem_req->m_appl_id, request, ppn, channel, package,  
-                          die, plane, block, page, finishTick);
+                        request.reqID, m_cycle);                      
+  pHIL->collectPPN(mem_req->m_appl_id, request, ppn, channel, package,  
+                        die, plane, block, page, finishTick);
+  // if (mem_req->m_dirty == 0)
+  //   pHIL->collectPPN(mem_req->m_appl_id, request, ppn, channel, package,  
+  //                         die, plane, block, page, finishTick);
+  // else
+  //   pHIL->allocatePPN(mem_req->m_appl_id, request, ppn, channel, package,  
+  //                         die, plane, block, page, finishTick);
   assert(finishTick == m_cycle);
   if (mem_req->m_dirty)
     printf("Jie: write lpn %lu ppn %u channel %u package %u die %u plane %u \
@@ -708,7 +709,7 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
 
   uint32_t reqPlaneIdx = converttoPlaneIdx(channel, package, die, plane);
   reqPlaneIdx = reqPlaneIdx*palparam->pageReg / palparam->pageRegAssoc;
-  uint32_t reqPageIdx = ppn;
+  uint64_t reqPageIdx = request.range.slpn;
   if (palparam->pageReg != 0){
     int candidateCacheIdx = -1, candidateDataIdx = -1;
     if (FindCandidateSlot(pageregInternal[reqPlaneIdx], candidateCacheIdx,
@@ -844,6 +845,8 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
               printf("Wrong option for pageRegNet!\n");
               assert(0);
           }
+          pHIL->allocatePPN(mem_req->m_appl_id, request, ppn, channel, package,  
+                                                        die, plane, block, page, finishTick);
           if (availableTime < planeAvailableTime[converttoPlaneIdx(channel, package, die, plane)])
             availableTime = planeAvailableTime[converttoPlaneIdx(channel, package, die, plane)];          
           uint32_t evicted_ppn;
@@ -857,7 +860,7 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
           uint32_t evicted_size = 4096;
           bool oper;
           oper = 1; //write
-          evicted_ppn = pageregInternal[reqPlaneIdx][candidateCacheIdx].page;
+          evicted_ppn = pageregInternal[reqPlaneIdx][candidateCacheIdx].ppn;
           evicted_page = evicted_ppn % palparam->page;
           evicted_ppn = evicted_ppn / palparam->page;
           evicted_block = evicted_ppn % palparam->block;
@@ -914,7 +917,9 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
             default:
               printf("Wrong option for pageRegNet!\n");
               assert(0);
-          }    
+          } 
+          pHIL->allocatePPN(mem_req->m_appl_id, request, ppn, channel, package,  
+                                                        die, plane, block, page, finishTick);             
           pageregInternal[reqPlaneIdx][candidateCacheIdx].valid = true;
           pageregInternal[reqPlaneIdx][candidateCacheIdx].ppn = ppn;
           pageregInternal[reqPlaneIdx][candidateCacheIdx].page = reqPageIdx;
@@ -925,7 +930,7 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
     }
   }
   SimpleSSD::Logger::info("Request finished at %d cycle, delay %d cycle", 
-                                  finishTick, finishTick - m_cycle);                                 
+                                  finishTick, finishTick - m_cycle);                               
   while (1){
     auto iter = m_output_buffer->find(finishTick);
     if (iter != m_output_buffer->end()) finishTick++;

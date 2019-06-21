@@ -58,14 +58,14 @@ class flash_interface_c : public dram_c {
   SimpleSSD::PAL::Parameter *palparam;
   struct _pageregInternal{
     Addr ppn;
-    uint32_t page;
+    Addr page;
     uint64_t available_time;
     bool valid;
     bool dirty;
   };
   struct _pageregInternal **pageregInternal;
   bool FindCandidateSlot(struct _pageregInternal *pageregInternal, 
-      int &cache_idx, int &data_idx, uint32_t search_page, bool isWrite);
+      int &cache_idx, int &data_idx, uint64_t search_page, bool isWrite);
   uint64_t *planeAvailableTime, *flashportAvailableTime; 
   typedef struct _TimeSlot{
     uint64_t StartTick;
