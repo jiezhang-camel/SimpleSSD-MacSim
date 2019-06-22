@@ -395,7 +395,7 @@ void simplessd_interface_c::receive(void) {
     uint32_t block;
     uint32_t page;      
     pHIL->collectPPN(req->m_appl_id, request, ppn, channel, package,  
-                        die, plane, block, page, finishTick);
+                        die, plane, block, page, finishTick, 0);
     package = package + channel * palparam->package;
     req->m_cache_id[MEM_FLASH] = package;
     finishTick = m_cycle;
@@ -681,9 +681,11 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
   uint32_t page;
   uint32_t destPlane = (uint32_t)-1;
   SimpleSSD::Logger::info("Request %d arrived at %d cycle",
-                        request.reqID, m_cycle);                      
+                        request.reqID, m_cycle); 
+  availableTime = static_cast<unsigned long long>(availableTime * 1000 / clock_freq);                                           
   pHIL->collectPPN(mem_req->m_appl_id, request, ppn, channel, package,  
-                        die, plane, block, page, availableTime);
+                        die, plane, block, page, availableTime, 0);
+  availableTime = availableTime / 1000 * clock_freq;                     
   // if (mem_req->m_dirty == 0)
   //   pHIL->collectPPN(mem_req->m_appl_id, request, ppn, channel, package,  
   //                         die, plane, block, page, finishTick);
@@ -897,7 +899,7 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
 
         }
         else {
-          if (availableTime > pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time)
+          if (availableTime < pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time)
             availableTime = pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time;
           switch (palparam->pageRegNet) {
             case NO_NET:
