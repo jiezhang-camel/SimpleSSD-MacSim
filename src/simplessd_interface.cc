@@ -624,7 +624,7 @@ void flash_interface_c::allocateIOport(int offset, int size, uint64_t &startTime
       break;
     } 
   }
-  finishTime = startTime + DMATime;     
+  finishTime = startTime + DMATime;    
 }
 
 void flash_interface_c::cleanIOPort(){
@@ -682,10 +682,10 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
   uint32_t destPlane = (uint32_t)-1;
   SimpleSSD::Logger::info("Request %d arrived at %d cycle",
                         request.reqID, m_cycle); 
-  availableTime = static_cast<unsigned long long>(availableTime * 1000 / clock_freq);                                           
+  availableTime = static_cast<unsigned long long>((double)availableTime * (double)1000 / (double)clock_freq);                                           
   pHIL->collectPPN(mem_req->m_appl_id, request, ppn, channel, package,  
                         die, plane, block, page, availableTime, 0);
-  availableTime = availableTime / 1000 * clock_freq;                     
+  availableTime = static_cast<unsigned long long>((double)availableTime * (double)clock_freq / (double)1000);                   
   // if (mem_req->m_dirty == 0)
   //   pHIL->collectPPN(mem_req->m_appl_id, request, ppn, channel, package,  
   //                         die, plane, block, page, finishTick);
@@ -774,10 +774,10 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
           availableTime = pageregInternal[reqPlaneIdx][candidateDataIdx].available_time; 
         if (availableTime < planeAvailableTime[converttoPlaneIdx(channel, package, die, plane)])
           availableTime = planeAvailableTime[converttoPlaneIdx(channel, package, die, plane)];
-        availableTime = static_cast<unsigned long long>(availableTime * 1000 / clock_freq);        
+        availableTime = static_cast<unsigned long long>((double)availableTime * (double)1000 / (double)clock_freq);        
         pHIL->schedulePPN(0, 0, (uint32_t &)request.offset, (uint32_t &)request.length, 
             ppn, channel, package, die, plane, block, page, availableTime);
-        availableTime = availableTime / 1000 * clock_freq;
+        availableTime = static_cast<unsigned long long>((double)availableTime * (double)clock_freq / (double)1000);    
         planeAvailableTime[converttoPlaneIdx(channel, package, die, plane)] = availableTime;
         switch (palparam->pageRegNet) {
           case NO_NET:
@@ -870,11 +870,11 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
           evicted_channel = evicted_ppn % palparam->channel;
           printf("flash_interface: Pagereg eviction @ ppn %u\n", evicted_ppn);
           availableTime =
-                    static_cast<unsigned long long>(availableTime * 1000 / clock_freq);          
+                    static_cast<unsigned long long>((double)availableTime * (double)1000 / (double)clock_freq);          
           pHIL->schedulePPN(0, oper, evicted_offset, evicted_size, evicted_ppn, 
             evicted_channel, evicted_package, evicted_die, evicted_plane, evicted_block,
             evicted_page, availableTime);
-          availableTime = availableTime / 1000 * clock_freq;
+          availableTime = static_cast<unsigned long long>((double)availableTime * (double)clock_freq / (double)1000);
           if (palparam->pageRegNet == NO_NET){
             pageregInternal[reqPlaneIdx][candidateDataIdx].valid = false;
             pageregInternal[reqPlaneIdx][candidateDataIdx].ppn = 0;
