@@ -483,97 +483,108 @@ void flash_interface_c::receive(void) {
   for (auto flash_id = 0; flash_id < pHIL->getFlashNum(); flash_id++){
     // check router queue every cycle
     mem_req_s *req = NIF_NETWORK->receive(MEM_FLASH, flash_id);
-    if (req){      
-      //cout<<"Janalysis: SSD-flash latency "<<m_cycle - req->m_in<<endl;
-      //Janalysis
-      //req->m_in = m_cycle;
-      
-      // check if req has same slot in the input buffer
-      bool input_buffer_hit = false;
-      bool output_buffer_hit = false;
-      for (auto I = m_input_buffer->begin(), E = m_input_buffer->end();
-            I != E; I++){
-        if ((I->second).front()->m_addr / logicalPageSize 
-                                    == req->m_addr / logicalPageSize){
-          input_buffer_hit = true;
-          (I->second).push(req);
-          NIF_NETWORK->receive_pop(MEM_FLASH, flash_id);
-          m_simBase->m_progress_checker->decrement_outstanding_layered_requests(7); //NIF_NETWORK
-          if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
-            m_simBase->m_bug_detector->deallocate_noc(req);
-          }
-          m_simBase->m_progress_checker->increment_outstanding_requests();
-          break;
-        }
+    unsigned long long finishTime;
+    if (req && insert_new_req(finishTime,req)) {
+      NIF_NETWORK->receive_pop(MEM_FLASH, flash_id);
+      m_simBase->m_progress_checker->decrement_outstanding_layered_requests(7); //NIF_NETWORK
+      if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
+        m_simBase->m_bug_detector->deallocate_noc(req);
       }
-      if (input_buffer_hit == false){
-        for (auto I = m_output_buffer->begin(), E = m_output_buffer->end();
-              I != E; I++){
-          if (I->second->m_addr / logicalPageSize 
-                                    == req->m_addr / logicalPageSize){
-            unsigned long long tmp_time = I->first+1;
-            while (1){
-              auto iter = m_input_buffer->find(tmp_time);
-              if (iter != m_input_buffer->end()) tmp_time++;
-              else break;
-            }
-            queue<mem_req_s *> tmp_queue;
-            tmp_queue.push(req);
-            m_input_buffer->insert( pair<unsigned long long, queue<mem_req_s *>>(
-                  tmp_time, tmp_queue));
-            output_buffer_hit = true;
-            NIF_NETWORK->receive_pop(MEM_FLASH, flash_id);
-            m_simBase->m_progress_checker->decrement_outstanding_layered_requests(7); //NIF_NETWORK
-            if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
-              m_simBase->m_bug_detector->deallocate_noc(req);
-            }
-            m_simBase->m_progress_checker->increment_outstanding_requests();
-            break;
-          }
-        }    
-      }
-      if (input_buffer_hit == false && output_buffer_hit == false){
-        unsigned long long finishTime;
-        //cout<<"Janalysis: queue latency "<<m_cycle - req->m_in<<endl;
-        //Janalysis
-        //req->m_in = m_cycle;
-        
-        if (req && insert_new_req(finishTime,req)) {
-          NIF_NETWORK->receive_pop(MEM_FLASH, flash_id);
-          m_simBase->m_progress_checker->decrement_outstanding_layered_requests(7); //NIF_NETWORK
-          if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
-            m_simBase->m_bug_detector->deallocate_noc(req);
-          }
-          m_simBase->m_progress_checker->increment_outstanding_requests();
-        }
-      }  
+      m_simBase->m_progress_checker->increment_outstanding_requests();
     }
-    auto I = m_input_buffer->begin();
-    auto E = m_input_buffer->end();
-    if ((I != E) && (I->first <= m_cycle)){
-      unsigned long long finishTime;
-      //cout<<"Janalysis: queue latency "<<m_cycle - (I->second).front()->m_in<<endl;
-      (I->second).front()->m_in = m_cycle;  
-      insert_new_req(finishTime,(I->second).front());
-      finishTime++;
-      if((I->second).size() == 1) m_input_buffer->erase(I);
-      else{
-        (I->second).pop();
-        while (1){
-          auto iter = m_input_buffer->find(finishTime);
-          if (iter != m_input_buffer->end())finishTime++;
-          else break;
-        }
-        queue<mem_req_s *> tmp_queue;
-        while (!(I->second).empty()){
-          tmp_queue.push((I->second).front());
-          (I->second).pop();
-        }
-        m_input_buffer->erase(I);
-        m_input_buffer->insert( pair<unsigned long long, queue<mem_req_s *>>(
-              finishTime, tmp_queue));      
-      }
-    }  
+
+
+    // if (req){      
+    //   //cout<<"Janalysis: SSD-flash latency "<<m_cycle - req->m_in<<endl;
+    //   //Janalysis
+    //   //req->m_in = m_cycle;
+      
+    //   // check if req has same slot in the input buffer
+    //   bool input_buffer_hit = false;
+    //   bool output_buffer_hit = false;
+    //   for (auto I = m_input_buffer->begin(), E = m_input_buffer->end();
+    //         I != E; I++){
+    //     if ((I->second).front()->m_addr / logicalPageSize 
+    //                                 == req->m_addr / logicalPageSize){
+    //       input_buffer_hit = true;
+    //       (I->second).push(req);
+    //       NIF_NETWORK->receive_pop(MEM_FLASH, flash_id);
+    //       m_simBase->m_progress_checker->decrement_outstanding_layered_requests(7); //NIF_NETWORK
+    //       if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
+    //         m_simBase->m_bug_detector->deallocate_noc(req);
+    //       }
+    //       m_simBase->m_progress_checker->increment_outstanding_requests();
+    //       break;
+    //     }
+    //   }
+    //   if (input_buffer_hit == false){
+    //     for (auto I = m_output_buffer->begin(), E = m_output_buffer->end();
+    //           I != E; I++){
+    //       if (I->second->m_addr / logicalPageSize 
+    //                                 == req->m_addr / logicalPageSize){
+    //         unsigned long long tmp_time = I->first+1;
+    //         while (1){
+    //           auto iter = m_input_buffer->find(tmp_time);
+    //           if (iter != m_input_buffer->end()) tmp_time++;
+    //           else break;
+    //         }
+    //         queue<mem_req_s *> tmp_queue;
+    //         tmp_queue.push(req);
+    //         m_input_buffer->insert( pair<unsigned long long, queue<mem_req_s *>>(
+    //               tmp_time, tmp_queue));
+    //         output_buffer_hit = true;
+    //         NIF_NETWORK->receive_pop(MEM_FLASH, flash_id);
+    //         m_simBase->m_progress_checker->decrement_outstanding_layered_requests(7); //NIF_NETWORK
+    //         if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
+    //           m_simBase->m_bug_detector->deallocate_noc(req);
+    //         }
+    //         m_simBase->m_progress_checker->increment_outstanding_requests();
+    //         break;
+    //       }
+    //     }    
+    //   }
+    //   if (input_buffer_hit == false && output_buffer_hit == false){
+    //     unsigned long long finishTime;
+    //     //cout<<"Janalysis: queue latency "<<m_cycle - req->m_in<<endl;
+    //     //Janalysis
+    //     //req->m_in = m_cycle;
+        
+    //     if (req && insert_new_req(finishTime,req)) {
+    //       NIF_NETWORK->receive_pop(MEM_FLASH, flash_id);
+    //       m_simBase->m_progress_checker->decrement_outstanding_layered_requests(7); //NIF_NETWORK
+    //       if (*KNOB(KNOB_BUG_DETECTOR_ENABLE)) {
+    //         m_simBase->m_bug_detector->deallocate_noc(req);
+    //       }
+    //       m_simBase->m_progress_checker->increment_outstanding_requests();
+    //     }
+    //   }  
+    // }
+    // auto I = m_input_buffer->begin();
+    // auto E = m_input_buffer->end();
+    // if ((I != E) && (I->first <= m_cycle)){
+    //   unsigned long long finishTime;
+    //   //cout<<"Janalysis: queue latency "<<m_cycle - (I->second).front()->m_in<<endl;
+    //   (I->second).front()->m_in = m_cycle;  
+    //   insert_new_req(finishTime,(I->second).front());
+    //   finishTime++;
+    //   if((I->second).size() == 1) m_input_buffer->erase(I);
+    //   else{
+    //     (I->second).pop();
+    //     while (1){
+    //       auto iter = m_input_buffer->find(finishTime);
+    //       if (iter != m_input_buffer->end())finishTime++;
+    //       else break;
+    //     }
+    //     queue<mem_req_s *> tmp_queue;
+    //     while (!(I->second).empty()){
+    //       tmp_queue.push((I->second).front());
+    //       (I->second).pop();
+    //     }
+    //     m_input_buffer->erase(I);
+    //     m_input_buffer->insert( pair<unsigned long long, queue<mem_req_s *>>(
+    //           finishTime, tmp_queue));      
+    //   }
+    // }  
     
   }
 }
