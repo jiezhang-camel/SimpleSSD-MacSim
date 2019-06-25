@@ -472,6 +472,8 @@ class memory_c {
 
   int *m_iris_node_id; /**< noc id for iris network nodes */
 
+  Counter m_cycle; /**< clock cycle */
+
  protected:
   /**
    * Allocate a new request from free list
@@ -515,6 +517,7 @@ class memory_c {
    */
   void flush_prefetch(int core_id);
 
+
  protected:
   dcu_c **m_l1_cache;                  /**< L1 caches */
   dcu_c **m_l2_cache;                  /**< L2 caches */
@@ -539,7 +542,6 @@ class memory_c {
   unordered_map<Addr, bool>
       m_td_pending_req; /**< pending requests in tag directory */
 
-  Counter m_cycle; /**< clock cycle */
   pool_c<mem_req_s>
       *m_mem_req_pool; /**< pool for write requests in ptx simulations */
 };

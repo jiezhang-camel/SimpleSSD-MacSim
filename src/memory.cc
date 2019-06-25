@@ -971,10 +971,12 @@ void dcu_c::receive_packet(void) {
       bool insert_done = false;
       if (req->m_msg_type == NOC_FILL || req->m_msg_type == NOC_ACK) {
         insert_done = fill(req);
+        //cout << "Jie_analysis m_id " << req->m_id << " L" << m_level+1 << "-L" << m_level << " receive latency "<< MEMORY->m_cycle - req->m_in << " " << MEMORY->m_cycle << " "<< req->m_in << endl;
       }
       else if (req->m_msg_type == NOC_NEW ||
                req->m_msg_type == NOC_NEW_WITH_DATA) {                         
         insert_done = insert(req);
+        //cout << "Jie_analysis m_id " << req->m_id << " L" << m_level-1 << "-L" << m_level << " receive latency "<< MEMORY->m_cycle - req->m_in << " " << MEMORY->m_cycle << " "<< req->m_in << endl;        
       }
       else {
         assert(0);
@@ -1013,6 +1015,7 @@ bool dcu_c::send_packet(mem_req_s *req, int msg_type, int dir) {
                                 req->m_cache_id[m_level + dir]);
 
   if (packet_insert) {
+    //cout << "Jie_analysis m_id " << req->m_id <<  " L" << m_level << " send latency "<< MEMORY->m_cycle - req->m_in << " " << MEMORY->m_cycle << " "<< req->m_in << endl;
     m_simBase->m_progress_checker->increment_outstanding_layered_requests(6); //NETWORK
     //Janalysis:
     // if (m_level == 3 && (m_level + dir) == 4){
@@ -1027,7 +1030,7 @@ bool dcu_c::send_packet(mem_req_s *req, int msg_type, int dir) {
         (*KNOB(KNOB_ENABLE_IRIS) || *KNOB(KNOB_ENABLE_NEW_NOC))) {
       m_simBase->m_bug_detector->allocate_noc(req);
     }
-
+    //req->m_in = MEMORY->m_cycle; //Jie_analysis
     req->m_state = MEM_IN_NOC;
     return true;
   }
@@ -2106,6 +2109,7 @@ void memory_c::set_cache_id(mem_req_s *req) {
 void memory_c::free_req(int core_id, mem_req_s *req) {
   STAT_EVENT(AVG_MEMORY_LATENCY_BASE);
   STAT_EVENT_N(AVG_MEMORY_LATENCY, m_cycle - req->m_in);
+  //cout << "Jie_analysis m_id " << req->m_id <<  " final latency "<< MEMORY->m_cycle - req->m_in << endl;
 
   // when there are still merged requests, call done wrapper function
   if (!req->m_merge.empty()) {
@@ -2130,6 +2134,7 @@ void memory_c::free_req(int core_id, mem_req_s *req) {
 void memory_c::free_write_req(mem_req_s *req) {
   STAT_EVENT(AVG_MEMORY_LATENCY_BASE);
   STAT_EVENT_N(AVG_MEMORY_LATENCY, m_cycle - req->m_in);
+  //cout << "Jie_analysis m_id " << req->m_id <<  " final latency "<< MEMORY->m_cycle - req->m_in << endl;
 
   m_mem_req_pool->release_entry(req);
 }

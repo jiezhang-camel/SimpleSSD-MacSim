@@ -273,7 +273,7 @@ void simplessd_interface_c::send(void) {
       req_type_checked[req->m_ptx] = true;
       req->m_msg_type = NOC_FILL;
 
-      req->m_in = m_cycle;
+      //req->m_in = m_cycle; //Jie_analysis
       bool insert_packet =
           NETWORK->send(req, MEM_MC, m_id, MEM_L3, req->m_cache_id[MEM_L3]);
 
@@ -337,7 +337,7 @@ void flash_interface_c::send(void) {
 
       req_type_checked[req->m_ptx] = true;
       req->m_msg_type = NOC_FILL;
-      req->m_in = m_cycle;
+      //req->m_in = m_cycle;
       bool insert_packet =
           NIF_NETWORK->send(req, MEM_FLASH, req->m_cache_id[MEM_FLASH], MEM_MC, req->m_cache_id[MEM_MC]);
       if (!insert_packet) {
