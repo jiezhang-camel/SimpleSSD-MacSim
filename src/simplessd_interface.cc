@@ -109,11 +109,11 @@ void flash_interface_c::init(int id) {
   planeAvailableTime = new uint64_t[totalPlane];
   for (unsigned i = 0; i < totalPlane; i++)
     planeAvailableTime[i] = 0;
-  // if (palparam->pageRegNet == HB_NET){
-  //   flashportAvailableTime = new uint64_t[totalPlane];
-  //   for (unsigned i = 0; i < totalPlane; i++)
-  //     flashportAvailableTime[i] = 0;
-  // }
+  if (palparam->pageRegNet == HB_NET){
+    flashportAvailableTime = new uint64_t[totalPlane];
+    for (unsigned i = 0; i < totalPlane; i++)
+      flashportAvailableTime[i] = 0;
+  }
   if (palparam->pageRegNet == NO_NET || palparam->pageRegNet == FC_NET) 
     IOportTimeSlot = new set<uint64_t>[palparam->channel * palparam->package * 2];
   if (palparam->pageRegNet == HB_NET)
@@ -783,6 +783,13 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
         assert(candidateCacheIdx == -1);
         if (availableTime < pageregInternal[reqPlaneIdx][candidateDataIdx].available_time)
           availableTime = pageregInternal[reqPlaneIdx][candidateDataIdx].available_time; 
+        // if ( palparam->pageRegNet == HB_NET )
+        //   if (availableTime < flashportAvailableTime[reqPlaneIdx * palparam->pageRegAssoc 
+        //                             / palparam->pageReg + candidateDataIdx 
+        //                             / (palparam->readReg * palparam->pageReg / palparam->pageRegAssoc)])
+        //     availableTime = flashportAvailableTime[reqPlaneIdx * palparam->pageRegAssoc 
+        //                             / palparam->pageReg + candidateDataIdx 
+        //                             / (palparam->readReg * palparam->pageReg / palparam->pageRegAssoc)];
         if (availableTime < planeAvailableTime[converttoPlaneIdx(channel, package, die, plane)])
           availableTime = planeAvailableTime[converttoPlaneIdx(channel, package, die, plane)];
         availableTime = static_cast<unsigned long long>((double)availableTime * (double)1000 / (double)clock_freq);        
@@ -812,6 +819,10 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
             printf("Wrong option for pageRegNet!\n");
             assert(0);
         } 
+        // if ( palparam->pageRegNet == HB_NET )
+        //   flashportAvailableTime[reqPlaneIdx * palparam->pageRegAssoc 
+        //           / palparam->pageReg + candidateDataIdx 
+        //           / (palparam->readReg * palparam->pageReg / palparam->pageRegAssoc)] = availableTime;
         pageregInternal[reqPlaneIdx][candidateDataIdx].valid = true;
         pageregInternal[reqPlaneIdx][candidateDataIdx].ppn = ppn;
         pageregInternal[reqPlaneIdx][candidateDataIdx].page = reqPageIdx;
@@ -836,26 +847,23 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
             case FC_NET:
               if (availableTime < pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time)
                 availableTime = pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time;            
-              allocateIOport( 
-                    converttoPackageIdx(channel, package) * 2 +
-                    converttoPlaneIdx(channel, package, die, plane) % 2,
-                    mem_req->m_size, availableTime, finishTick);        
               break;
             case HB_NET:
               if (availableTime < pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time)
-                availableTime = pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time;            
-              allocateIOport( 
-                    converttoPackageIdx(channel, package),
-                    mem_req->m_size, availableTime, finishTick);       
+                availableTime = pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time;                   
               break;
             default:
               printf("Wrong option for pageRegNet!\n");
               assert(0);
           }
+          // uint32_t prev_plane = converttoPlaneIdx(channel, package, die, plane);
+          // cout << "Jie_analysis: prev channel " << channel << " package " << package << " die " << die << " plane " << plane << " block " << block << " page " << page << endl;
           pHIL->allocatePPN(mem_req->m_appl_id, request, ppn, channel, package,  
-                                                        die, plane, block, page, finishTick);
-          if (availableTime < planeAvailableTime[converttoPlaneIdx(channel, package, die, plane)])
-            availableTime = planeAvailableTime[converttoPlaneIdx(channel, package, die, plane)];          
+                                                        die, plane, block, page, finishTick); 
+          //Jie: analysis
+          // cout << "Jie_analysis: new channel " << channel << " package " << package << " die " << die << " plane " << plane << " block " << block << " page " << page << endl;
+          // if (prev_plane != converttoPlaneIdx(channel, package, die, plane)) 
+          //   cout << "Jie_analysis: incorrect page allocation in FTL" << endl;       
           uint32_t evicted_ppn;
           uint32_t evicted_channel;
           uint32_t evicted_package;
@@ -879,20 +887,50 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
           evicted_package = evicted_ppn % palparam->package;
           evicted_ppn = evicted_ppn / palparam->package; 
           evicted_channel = evicted_ppn % palparam->channel;
-          printf("flash_interface: Pagereg eviction @ ppn %u\n", evicted_ppn);
+          printf("flash_interface: Pagereg eviction @ ppn %u\n", pageregInternal[reqPlaneIdx][candidateCacheIdx].ppn);
+          // if ( palparam->pageRegNet == HB_NET )
+          //   if (availableTime < flashportAvailableTime[reqPlaneIdx * palparam->pageRegAssoc 
+          //                             / palparam->pageReg + (candidateCacheIdx - palparam->readReg)
+          //                             / ( (palparam->pageRegAssoc-palparam->readReg) * palparam->pageReg / palparam->pageRegAssoc)])
+          //     availableTime = flashportAvailableTime[reqPlaneIdx * palparam->pageRegAssoc 
+          //                             / palparam->pageReg + (candidateCacheIdx - palparam->readReg)
+          //                             / ( (palparam->pageRegAssoc-palparam->readReg) * palparam->pageReg / palparam->pageRegAssoc)];
+
+          // if (converttoPackageIdx(evicted_channel, evicted_package) != converttoPackageIdx(channel, package))
+          //   cout << "Jie_analysis: mismatch between evicted ppn and ppn" << endl; 
+          if (availableTime < planeAvailableTime[converttoPlaneIdx(evicted_channel, evicted_package, evicted_die, evicted_plane)])
+            availableTime = planeAvailableTime[converttoPlaneIdx(evicted_channel, evicted_package, evicted_die, evicted_plane)];           
           availableTime =
                     static_cast<unsigned long long>((double)availableTime * (double)1000 / (double)clock_freq);          
           pHIL->schedulePPN(0, oper, evicted_offset, evicted_size, evicted_ppn, 
             evicted_channel, evicted_package, evicted_die, evicted_plane, evicted_block,
             evicted_page, availableTime);
           availableTime = static_cast<unsigned long long>((double)availableTime * (double)clock_freq / (double)1000);
+          switch (palparam->pageRegNet) {
+            case NO_NET:
+              break;
+            case FC_NET:
+              allocateIOport( 
+                    converttoPackageIdx(channel, package) * 2 +
+                    converttoPlaneIdx(channel, package, die, plane) % 2,
+                    mem_req->m_size, availableTime, finishTick);        
+              break;
+            case HB_NET:
+              allocateIOport( 
+                    converttoPackageIdx(channel, package),
+                    mem_req->m_size, availableTime, finishTick);
+              break;            
+            default:       
+              printf("Wrong option for pageRegNet!\n");
+              assert(0);
+          }               
           if (palparam->pageRegNet == NO_NET){
             pageregInternal[reqPlaneIdx][candidateDataIdx].valid = false;
             pageregInternal[reqPlaneIdx][candidateDataIdx].ppn = 0;
             pageregInternal[reqPlaneIdx][candidateDataIdx].page = 0;
             pageregInternal[reqPlaneIdx][candidateDataIdx].dirty = false;
             pageregInternal[reqPlaneIdx][candidateDataIdx].available_time = availableTime; 
-            planeAvailableTime[converttoPlaneIdx(channel, package, die, plane)] = availableTime;          
+            planeAvailableTime[converttoPlaneIdx(evicted_channel, evicted_package, evicted_die, evicted_plane)] = availableTime;          
             pageregInternal[reqPlaneIdx][candidateCacheIdx].valid = true;
             pageregInternal[reqPlaneIdx][candidateCacheIdx].ppn = ppn;
             pageregInternal[reqPlaneIdx][candidateCacheIdx].page = reqPageIdx;
@@ -900,12 +938,17 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
             pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time = finishTick; 
           }
           else {
-            planeAvailableTime[converttoPlaneIdx(channel, package, die, plane)] = availableTime;          
+            // if ( palparam->pageRegNet == HB_NET )
+            //   flashportAvailableTime[reqPlaneIdx * palparam->pageRegAssoc / palparam->pageReg
+            //                            + (candidateCacheIdx - palparam->readReg)
+            //                           / ( (palparam->pageRegAssoc-palparam->readReg) * palparam->pageReg / palparam->pageRegAssoc)]
+            //                           = availableTime;              
+            planeAvailableTime[converttoPlaneIdx(evicted_channel, evicted_package, evicted_die, evicted_plane)] = availableTime;          
             pageregInternal[reqPlaneIdx][candidateCacheIdx].valid = true;
             pageregInternal[reqPlaneIdx][candidateCacheIdx].ppn = ppn;
             pageregInternal[reqPlaneIdx][candidateCacheIdx].page = reqPageIdx;
             pageregInternal[reqPlaneIdx][candidateCacheIdx].dirty = true;
-            pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time = availableTime;             
+            pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time = finishTick;             
           }
 
         }
@@ -934,8 +977,14 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
               printf("Wrong option for pageRegNet!\n");
               assert(0);
           } 
+          // uint32_t prev_plane = converttoPlaneIdx(channel, package, die, plane);
+          // cout << "Jie_analysis: prev channel " << channel << " package " << package << " die " << die << " plane " << plane << " block " << block << " page " << page << endl;
           pHIL->allocatePPN(mem_req->m_appl_id, request, ppn, channel, package,  
-                                                        die, plane, block, page, finishTick);             
+                                                        die, plane, block, page, finishTick);  
+          //Jie: analysis
+          // cout << "Jie_analysis: new channel " << channel << " package " << package << " die " << die << " plane " << plane << " block " << block << " page " << page << endl;
+          // if (prev_plane != converttoPlaneIdx(channel, package, die, plane)) 
+          //   cout << "Jie_analysis: incorrect page allocation in FTL" << endl;                                                                    
           pageregInternal[reqPlaneIdx][candidateCacheIdx].valid = true;
           pageregInternal[reqPlaneIdx][candidateCacheIdx].ppn = ppn;
           pageregInternal[reqPlaneIdx][candidateCacheIdx].page = reqPageIdx;
