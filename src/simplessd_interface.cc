@@ -19,7 +19,7 @@
 #define DEBUG(args...) _DEBUG(*m_simBase->m_knobs->KNOB_DEBUG_DRAM, ##args)
 #define NO_NET 0
 #define FC_NET 1
-#define BUS_NET 2
+#define HB_NET_OLD 2
 #define HB_NET 3
 #define tBUSY 3000 * 1.6
 
@@ -109,14 +109,14 @@ void flash_interface_c::init(int id) {
   planeAvailableTime = new uint64_t[totalPlane];
   for (unsigned i = 0; i < totalPlane; i++)
     planeAvailableTime[i] = 0;
-  if (palparam->pageRegNet == HB_NET){
+  if (palparam->pageRegNet == HB_NET || palparam->pageRegNet == HB_NET_OLD){
     flashportAvailableTime = new uint64_t[totalPlane];
     for (unsigned i = 0; i < totalPlane; i++)
       flashportAvailableTime[i] = 0;
   }
   if (palparam->pageRegNet == NO_NET || palparam->pageRegNet == FC_NET) 
     IOportTimeSlot = new set<uint64_t>[palparam->channel * palparam->package * 2];
-  if (palparam->pageRegNet == HB_NET)
+  if (palparam->pageRegNet == HB_NET || palparam->pageRegNet == HB_NET_OLD)
     IOportTimeSlot = new set<uint64_t>[palparam->channel * palparam->package];
 }
 
@@ -211,6 +211,180 @@ bool flash_interface_c::FindCandidateSlot(struct _pageregInternal *pageregIntern
         data_idx = data_invalid_idx;
       else
         data_idx = data_lru_idx;
+      return false;
+    }    
+  }
+}
+
+bool flash_interface_c::FindCandidateSlot_HBNET(int readPlaneIdx, int reqPlaneIdx,
+                    int &cache_idx, int &data_idx, uint64_t search_page, bool isWrite) {
+  struct _pageregInternal *pageregGroup =  pageregInternal[reqPlaneIdx];                   
+  int cache_invalid_idx = (uint32_t)-1;
+  int cache_lru_idx = (uint32_t)-1;
+  int cache_block_idx = (uint32_t)-1;
+  uint64_t cache_minTime = (uint64_t)-1;
+  int data_invalid_idx = (uint32_t)-1;
+  int data_lru_idx = (uint32_t)-1;
+  int data_block_idx = (uint32_t)-1;
+  uint64_t data_minTime = (uint64_t)-1;
+  uint64_t diff_minTime = (uint64_t)-1;
+  // Find out hit slot
+  if (isWrite == 0){ //read
+    for (unsigned i = 0; i < palparam->readReg; i++) {
+      if ((pageregGroup+i)->valid == true && 
+                          search_page == (pageregGroup+i)->page){
+        data_idx = i;
+        return true;
+      }
+      if ((pageregGroup+i)->valid == false){
+        data_invalid_idx = i;
+      }
+      else {
+        if (flashportAvailableTime[reqPlaneIdx * palparam->pageRegAssoc / palparam->pageReg + i / (palparam->readReg * palparam->pageReg / palparam->pageRegAssoc)] <= planeAvailableTime[readPlaneIdx]){
+          if (data_minTime == (uint64_t)-1){
+            data_minTime = (pageregGroup+i)->available_time;
+            data_lru_idx = i;
+          }
+          else{
+            if (data_minTime > (pageregGroup+i)->available_time){
+              data_minTime = (pageregGroup+i)->available_time;
+              data_lru_idx = i;
+            }
+          } 
+        }
+        else{
+          if (diff_minTime == (uint64_t)-1){
+            diff_minTime = flashportAvailableTime[reqPlaneIdx * palparam->pageRegAssoc / palparam->pageReg + i / (palparam->readReg * palparam->pageReg / palparam->pageRegAssoc)] - planeAvailableTime[readPlaneIdx];
+            data_block_idx = i;
+          }
+          else {
+            if (diff_minTime > flashportAvailableTime[reqPlaneIdx * palparam->pageRegAssoc / palparam->pageReg + i / (palparam->readReg * palparam->pageReg / palparam->pageRegAssoc)] - planeAvailableTime[readPlaneIdx]){
+              diff_minTime = flashportAvailableTime[reqPlaneIdx * palparam->pageRegAssoc / palparam->pageReg + i / (palparam->readReg * palparam->pageReg / palparam->pageRegAssoc)] - planeAvailableTime[readPlaneIdx];
+              data_block_idx = i;              
+            }
+          }
+        }
+      }
+    }
+    if (data_invalid_idx != (uint32_t)-1){
+      data_idx = data_invalid_idx;
+      return false;
+    }
+    else if (data_lru_idx != (uint32_t)-1){
+      data_idx = data_lru_idx;
+      return false;
+    }
+    else {
+      data_idx = data_block_idx;
+      return false;
+    }
+  }
+  // else{ //write
+  //   for (unsigned i = palparam->readReg; i < palparam->pageRegAssoc; i++) {
+  //     if ((pageregGroup+i)->valid == true && 
+  //                         search_page == (pageregGroup+i)->page){
+  //       cache_idx = i;
+  //       return true;
+  //     }
+  //     if ((pageregGroup+i)->valid == false){
+  //       cache_invalid_idx = i;
+  //     }
+  //     else {
+  //       uint32_t evicted_ppn;
+  //       uint32_t evicted_channel;
+  //       uint32_t evicted_package;
+  //       uint32_t evicted_die;
+  //       uint32_t evicted_plane;     
+  //       uint32_t evicted_block;
+  //       uint32_t evicted_page;
+  //       evicted_ppn = (pageregGroup+i)->ppn;
+  //       evicted_page = evicted_ppn % palparam->page;
+  //       evicted_ppn = evicted_ppn / palparam->page;
+  //       evicted_block = evicted_ppn % palparam->block;
+  //       evicted_ppn = evicted_ppn / palparam->block;
+  //       evicted_plane = evicted_ppn % (palparam->plane * palparam->nandMultiapp);
+  //       evicted_ppn = evicted_ppn / (palparam->plane * palparam->nandMultiapp);
+  //       evicted_die = evicted_ppn % palparam->die;
+  //       evicted_ppn = evicted_ppn / palparam->die;
+  //       evicted_package = evicted_ppn % palparam->package;
+  //       evicted_ppn = evicted_ppn / palparam->package; 
+  //       evicted_channel = evicted_ppn % palparam->channel;          
+  //       if (flashportAvailableTime[reqPlaneIdx * palparam->pageRegAssoc 
+  //                             / palparam->pageReg + (i - palparam->readReg)
+  //                             / ( (palparam->pageRegAssoc-palparam->readReg) * palparam->pageReg / palparam->pageRegAssoc)] <= planeAvailableTime[converttoPlaneIdx(evicted_channel, evicted_package, evicted_die, evicted_plane)]){
+  //         if (cache_minTime == (uint64_t)-1){
+  //           cache_minTime = (pageregGroup+i)->available_time;
+  //           cache_lru_idx = i;
+  //         }
+  //         else{
+  //           if (cache_minTime > (pageregGroup+i)->available_time){
+  //             cache_minTime = (pageregGroup+i)->available_time;
+  //             cache_lru_idx = i;
+  //           }
+  //         } 
+  //       }
+  //       else{
+  //         if (diff_minTime == (uint64_t)-1){
+  //           diff_minTime = flashportAvailableTime[reqPlaneIdx * palparam->pageRegAssoc 
+  //                             / palparam->pageReg + (i - palparam->readReg)
+  //                             / ( (palparam->pageRegAssoc-palparam->readReg) * palparam->pageReg / palparam->pageRegAssoc)] - planeAvailableTime[converttoPlaneIdx(evicted_channel, evicted_package, evicted_die, evicted_plane)];
+  //           cache_block_idx = i;
+  //         }
+  //         else {
+  //           if (diff_minTime > flashportAvailableTime[reqPlaneIdx * palparam->pageRegAssoc 
+  //                             / palparam->pageReg + (i - palparam->readReg)
+  //                             / ( (palparam->pageRegAssoc-palparam->readReg) * palparam->pageReg / palparam->pageRegAssoc)] - planeAvailableTime[converttoPlaneIdx(evicted_channel, evicted_package, evicted_die, evicted_plane)]){
+  //             diff_minTime = flashportAvailableTime[reqPlaneIdx * palparam->pageRegAssoc 
+  //                             / palparam->pageReg + (i - palparam->readReg)
+  //                             / ( (palparam->pageRegAssoc-palparam->readReg) * palparam->pageReg / palparam->pageRegAssoc)] - planeAvailableTime[converttoPlaneIdx(evicted_channel, evicted_package, evicted_die, evicted_plane)];
+  //             cache_block_idx = i;              
+  //           }
+  //         }
+  //       }
+  //     }
+  //   }
+  //   if (cache_invalid_idx != (uint32_t)-1){
+  //     cache_idx = cache_invalid_idx;
+  //     return false;
+  //   }
+  //   else if (cache_lru_idx != (uint32_t)-1){
+  //     cache_idx = cache_lru_idx;
+  //     return false;
+  //   }
+  //   else {
+  //     cache_idx = cache_block_idx;
+  //     return false;
+  //   }      
+  // }
+  else{ //write
+    for (unsigned i = palparam->readReg; i < palparam->pageRegAssoc; i++) {
+      if ((pageregGroup+i)->valid == true && 
+                          search_page == (pageregGroup+i)->page){
+        cache_idx = i;
+        return true;
+      }
+      if ((pageregGroup+i)->valid == false){
+        cache_invalid_idx = i;
+      }
+      else {
+        if (cache_minTime == (uint64_t)-1){
+          cache_minTime = (pageregGroup+i)->available_time;
+          cache_lru_idx = i;
+        }
+        else{
+          if (cache_minTime > (pageregGroup+i)->available_time){
+            cache_minTime = (pageregGroup+i)->available_time;
+            cache_lru_idx = i;
+          }
+        }      
+      }
+    }
+    if (cache_invalid_idx != (uint32_t)-1){
+      cache_idx = cache_invalid_idx;
+      return false;
+    }
+    else{
+      cache_idx = cache_lru_idx;
       return false;
     }    
   }
@@ -725,8 +899,14 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
   uint64_t reqPageIdx = request.range.slpn;
   if (palparam->pageReg != 0){
     int candidateCacheIdx = -1, candidateDataIdx = -1;
-    if (FindCandidateSlot(pageregInternal[reqPlaneIdx], candidateCacheIdx,
-                          candidateDataIdx, reqPageIdx, mem_req->m_dirty)){
+    bool isHit =false;
+    isHit = (palparam->pageRegNet == HB_NET)?
+            FindCandidateSlot_HBNET(converttoPlaneIdx(channel, package, die, plane),
+                        reqPlaneIdx, candidateCacheIdx,
+                        candidateDataIdx, reqPageIdx, mem_req->m_dirty):
+            FindCandidateSlot(pageregInternal[reqPlaneIdx], candidateCacheIdx,
+                        candidateDataIdx, reqPageIdx, mem_req->m_dirty);
+  if (isHit){      
       if (mem_req->m_dirty == 0)
         printf("flash_interface: Pagereg read hit @ index %d\n", candidateDataIdx);
       else
@@ -756,6 +936,11 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
                 converttoPlaneIdx(channel, package, die, plane) % 2,
                 mem_req->m_size, availableTime, finishTick);        
           break;
+        case HB_NET_OLD:
+          allocateIOport( 
+                converttoPackageIdx(channel, package),
+                mem_req->m_size, availableTime, finishTick);       
+          break;          
         case HB_NET:
           allocateIOport( 
                 converttoPackageIdx(channel, package),
@@ -783,15 +968,23 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
         assert(candidateCacheIdx == -1);
         if (availableTime < pageregInternal[reqPlaneIdx][candidateDataIdx].available_time)
           availableTime = pageregInternal[reqPlaneIdx][candidateDataIdx].available_time; 
-        // if ( palparam->pageRegNet == HB_NET )
-        //   if (availableTime < flashportAvailableTime[reqPlaneIdx * palparam->pageRegAssoc 
-        //                             / palparam->pageReg + candidateDataIdx 
-        //                             / (palparam->readReg * palparam->pageReg / palparam->pageRegAssoc)])
-        //     availableTime = flashportAvailableTime[reqPlaneIdx * palparam->pageRegAssoc 
-        //                             / palparam->pageReg + candidateDataIdx 
-        //                             / (palparam->readReg * palparam->pageReg / palparam->pageRegAssoc)];
         if (availableTime < planeAvailableTime[converttoPlaneIdx(channel, package, die, plane)])
           availableTime = planeAvailableTime[converttoPlaneIdx(channel, package, die, plane)];
+        if ( palparam->pageRegNet == HB_NET || palparam->pageRegNet == HB_NET_OLD )
+          if (availableTime < flashportAvailableTime[reqPlaneIdx * palparam->pageRegAssoc 
+                                    / palparam->pageReg + candidateDataIdx 
+                                    / (palparam->readReg * palparam->pageReg / palparam->pageRegAssoc)]){
+            cout << "Jie_analysis: flash port delay " << flashportAvailableTime[reqPlaneIdx * palparam->pageRegAssoc / palparam->pageReg + candidateDataIdx / (palparam->readReg * palparam->pageReg / palparam->pageRegAssoc)] - availableTime << endl;                                                                       
+            availableTime = flashportAvailableTime[reqPlaneIdx * palparam->pageRegAssoc 
+                                    / palparam->pageReg + candidateDataIdx 
+                                    / (palparam->readReg * palparam->pageReg / palparam->pageRegAssoc)];
+          }
+        // if ( palparam->pageRegNet == HB_NET )
+        //   if (availableTime < flashportAvailableTime[converttoPlaneIdx(channel, package, die, plane)]){
+        //     cout << "Jie_analysis: flash port delay " << flashportAvailableTime[converttoPlaneIdx(channel, package, die, plane)] - availableTime << endl;                                                                       
+        //     availableTime = flashportAvailableTime[converttoPlaneIdx(channel, package, die, plane)];
+        //   }        
+
         availableTime = static_cast<unsigned long long>((double)availableTime * (double)1000 / (double)clock_freq);        
         pHIL->schedulePPN(0, 0, (uint32_t &)request.offset, (uint32_t &)request.length, 
             ppn, channel, package, die, plane, block, page, availableTime);
@@ -810,6 +1003,11 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
                   converttoPlaneIdx(channel, package, die, plane) % 2,
                   mem_req->m_size, availableTime, finishTick);        
             break;
+          case HB_NET_OLD:
+            allocateIOport( 
+                  converttoPackageIdx(channel, package),
+                  mem_req->m_size, availableTime, finishTick);       
+            break;            
           case HB_NET:
             allocateIOport( 
                   converttoPackageIdx(channel, package),
@@ -819,10 +1017,12 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
             printf("Wrong option for pageRegNet!\n");
             assert(0);
         } 
+        if ( palparam->pageRegNet == HB_NET || palparam->pageRegNet == HB_NET_OLD )
+          flashportAvailableTime[reqPlaneIdx * palparam->pageRegAssoc 
+                  / palparam->pageReg + candidateDataIdx 
+                  / (palparam->readReg * palparam->pageReg / palparam->pageRegAssoc)] = availableTime;
         // if ( palparam->pageRegNet == HB_NET )
-        //   flashportAvailableTime[reqPlaneIdx * palparam->pageRegAssoc 
-        //           / palparam->pageReg + candidateDataIdx 
-        //           / (palparam->readReg * palparam->pageReg / palparam->pageRegAssoc)] = availableTime;
+        //   flashportAvailableTime[converttoPlaneIdx(channel, package, die, plane)] = availableTime;        
         pageregInternal[reqPlaneIdx][candidateDataIdx].valid = true;
         pageregInternal[reqPlaneIdx][candidateDataIdx].ppn = ppn;
         pageregInternal[reqPlaneIdx][candidateDataIdx].page = reqPageIdx;
@@ -848,6 +1048,10 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
               if (availableTime < pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time)
                 availableTime = pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time;            
               break;
+            case HB_NET_OLD:
+              if (availableTime < pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time)
+                availableTime = pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time;                   
+              break;              
             case HB_NET:
               if (availableTime < pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time)
                 availableTime = pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time;                   
@@ -888,18 +1092,26 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
           evicted_ppn = evicted_ppn / palparam->package; 
           evicted_channel = evicted_ppn % palparam->channel;
           printf("flash_interface: Pagereg eviction @ ppn %u\n", pageregInternal[reqPlaneIdx][candidateCacheIdx].ppn);
-          // if ( palparam->pageRegNet == HB_NET )
-          //   if (availableTime < flashportAvailableTime[reqPlaneIdx * palparam->pageRegAssoc 
-          //                             / palparam->pageReg + (candidateCacheIdx - palparam->readReg)
-          //                             / ( (palparam->pageRegAssoc-palparam->readReg) * palparam->pageReg / palparam->pageRegAssoc)])
-          //     availableTime = flashportAvailableTime[reqPlaneIdx * palparam->pageRegAssoc 
-          //                             / palparam->pageReg + (candidateCacheIdx - palparam->readReg)
-          //                             / ( (palparam->pageRegAssoc-palparam->readReg) * palparam->pageReg / palparam->pageRegAssoc)];
-
           // if (converttoPackageIdx(evicted_channel, evicted_package) != converttoPackageIdx(channel, package))
           //   cout << "Jie_analysis: mismatch between evicted ppn and ppn" << endl; 
+          if ( palparam->pageRegNet == HB_NET ) availableTime += 2 * tBUSY;
           if (availableTime < planeAvailableTime[converttoPlaneIdx(evicted_channel, evicted_package, evicted_die, evicted_plane)])
             availableTime = planeAvailableTime[converttoPlaneIdx(evicted_channel, evicted_package, evicted_die, evicted_plane)];           
+          if ( palparam->pageRegNet == HB_NET_OLD )
+            if (availableTime < flashportAvailableTime[reqPlaneIdx * palparam->pageRegAssoc 
+                                      / palparam->pageReg + (candidateCacheIdx - palparam->readReg)
+                                      / ( (palparam->pageRegAssoc-palparam->readReg) * palparam->pageReg / palparam->pageRegAssoc)]){
+              cout << "Jie_analysis: flash port delay " << flashportAvailableTime[reqPlaneIdx * palparam->pageRegAssoc / palparam->pageReg + (candidateCacheIdx - palparam->readReg) / ( (palparam->pageRegAssoc-palparam->readReg) * palparam->pageReg / palparam->pageRegAssoc)] - availableTime << endl;
+              availableTime = flashportAvailableTime[reqPlaneIdx * palparam->pageRegAssoc 
+                                      / palparam->pageReg + (candidateCacheIdx - palparam->readReg)
+                                      / ( (palparam->pageRegAssoc-palparam->readReg) * palparam->pageReg / palparam->pageRegAssoc)]; 
+            }
+          if ( palparam->pageRegNet == HB_NET )
+            if (availableTime < flashportAvailableTime[converttoPlaneIdx(evicted_channel, evicted_package, evicted_die, evicted_plane)]){
+              cout << "Jie_analysis: flash port delay " << flashportAvailableTime[converttoPlaneIdx(evicted_channel, evicted_package, evicted_die, evicted_plane)] - availableTime << endl;
+              availableTime = flashportAvailableTime[converttoPlaneIdx(evicted_channel, evicted_package, evicted_die, evicted_plane)]; 
+            }
+
           availableTime =
                     static_cast<unsigned long long>((double)availableTime * (double)1000 / (double)clock_freq);          
           pHIL->schedulePPN(0, oper, evicted_offset, evicted_size, evicted_ppn, 
@@ -915,6 +1127,11 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
                     converttoPlaneIdx(channel, package, die, plane) % 2,
                     mem_req->m_size, availableTime, finishTick);        
               break;
+            case HB_NET_OLD:
+              allocateIOport( 
+                    converttoPackageIdx(channel, package),
+                    mem_req->m_size, availableTime, finishTick);
+              break;                 
             case HB_NET:
               allocateIOport( 
                     converttoPackageIdx(channel, package),
@@ -938,11 +1155,14 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
             pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time = finishTick; 
           }
           else {
-            // if ( palparam->pageRegNet == HB_NET )
-            //   flashportAvailableTime[reqPlaneIdx * palparam->pageRegAssoc / palparam->pageReg
-            //                            + (candidateCacheIdx - palparam->readReg)
-            //                           / ( (palparam->pageRegAssoc-palparam->readReg) * palparam->pageReg / palparam->pageRegAssoc)]
-            //                           = availableTime;              
+            if ( palparam->pageRegNet == HB_NET )
+              flashportAvailableTime[reqPlaneIdx * palparam->pageRegAssoc / palparam->pageReg
+                                       + (candidateCacheIdx - palparam->readReg)
+                                      / ( (palparam->pageRegAssoc-palparam->readReg) * palparam->pageReg / palparam->pageRegAssoc)]
+                                      = availableTime;        
+            if ( palparam->pageRegNet == HB_NET_OLD )
+              flashportAvailableTime[converttoPlaneIdx(evicted_channel, evicted_package, evicted_die, evicted_plane)]
+                                      = availableTime;                    
             planeAvailableTime[converttoPlaneIdx(evicted_channel, evicted_package, evicted_die, evicted_plane)] = availableTime;          
             pageregInternal[reqPlaneIdx][candidateCacheIdx].valid = true;
             pageregInternal[reqPlaneIdx][candidateCacheIdx].ppn = ppn;
@@ -968,6 +1188,11 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
                     converttoPlaneIdx(channel, package, die, plane) % 2,
                     mem_req->m_size, availableTime, finishTick);        
               break;
+            case HB_NET_OLD:
+              allocateIOport( 
+                    converttoPackageIdx(channel, package),
+                    mem_req->m_size, availableTime, finishTick);       
+              break;              
             case HB_NET:
               allocateIOport( 
                     converttoPackageIdx(channel, package),
