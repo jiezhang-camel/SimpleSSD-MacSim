@@ -1155,12 +1155,12 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
             pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time = finishTick; 
           }
           else {
-            if ( palparam->pageRegNet == HB_NET )
+            if ( palparam->pageRegNet == HB_NET_OLD )
               flashportAvailableTime[reqPlaneIdx * palparam->pageRegAssoc / palparam->pageReg
                                        + (candidateCacheIdx - palparam->readReg)
                                       / ( (palparam->pageRegAssoc-palparam->readReg) * palparam->pageReg / palparam->pageRegAssoc)]
                                       = availableTime;        
-            if ( palparam->pageRegNet == HB_NET_OLD )
+            if ( palparam->pageRegNet == HB_NET )
               flashportAvailableTime[converttoPlaneIdx(evicted_channel, evicted_package, evicted_die, evicted_plane)]
                                       = availableTime;                    
             planeAvailableTime[converttoPlaneIdx(evicted_channel, evicted_package, evicted_die, evicted_plane)] = availableTime;          
