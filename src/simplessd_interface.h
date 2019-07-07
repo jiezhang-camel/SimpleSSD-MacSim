@@ -10,6 +10,7 @@
 #include <map>
 #include <set>
 #include <string>
+#include <bitset>
 
 #include "dram.h"
 #include "global_defs.h"
@@ -62,6 +63,8 @@ class flash_interface_c : public dram_c {
     uint64_t available_time;
     bool valid;
     bool dirty;
+    uint32_t usedSector;
+    uint32_t reaccess;
   };
   struct _pageregInternal **pageregInternal;
   bool FindCandidateSlot(struct _pageregInternal *pageregInternal, 

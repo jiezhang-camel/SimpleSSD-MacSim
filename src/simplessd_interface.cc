@@ -100,6 +100,8 @@ void flash_interface_c::init(int id) {
       for (unsigned j = 0; j < palparam->pageRegAssoc; j++){
         pageregInternal[i][j].valid = false;
         pageregInternal[i][j].available_time = 0;
+        pageregInternal[i][j].usedSector = 0;
+        pageregInternal[i][j].reaccess = 0;
       }
     }
   }
@@ -957,6 +959,9 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
       else { // write operation
         pageregInternal[reqPlaneIdx][candidateCacheIdx].dirty = true;
         pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time = finishTick;
+        pageregInternal[reqPlaneIdx][candidateCacheIdx].usedSector |= 
+          0x1 << (request.offset / 128);
+        pageregInternal[reqPlaneIdx][candidateCacheIdx].reaccess++;          
       }
       //printf("Janalysis: flash latency %lu\n",0);
     }
@@ -1068,6 +1073,13 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
           // cout << "Jie_analysis: new channel " << channel << " package " << package << " die " << die << " plane " << plane << " block " << block << " page " << page << endl;
           // if (prev_plane != converttoPlaneIdx(channel, package, die, plane)) 
           //   cout << "Jie_analysis: incorrect page allocation in FTL" << endl;       
+          cout << "Jie_analysis: evicted pages lpn " <<
+                          pageregInternal[reqPlaneIdx][candidateCacheIdx].page <<
+                          " usedSector " << bitset<sizeof(int)*8>(
+                          pageregInternal[reqPlaneIdx][candidateCacheIdx].usedSector) <<
+                          " reaccess " <<
+                          pageregInternal[reqPlaneIdx][candidateCacheIdx].reaccess << endl;
+              
           uint32_t evicted_ppn;
           uint32_t evicted_channel;
           uint32_t evicted_package;
@@ -1152,7 +1164,10 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
             pageregInternal[reqPlaneIdx][candidateCacheIdx].ppn = ppn;
             pageregInternal[reqPlaneIdx][candidateCacheIdx].page = reqPageIdx;
             pageregInternal[reqPlaneIdx][candidateCacheIdx].dirty = true;
-            pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time = finishTick; 
+            pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time = finishTick;
+            pageregInternal[reqPlaneIdx][candidateCacheIdx].usedSector = 
+              0x1 << (request.offset / 128); 
+            pageregInternal[reqPlaneIdx][candidateCacheIdx].reaccess = 1;
           }
           else {
             if ( palparam->pageRegNet == HB_NET_OLD )
@@ -1168,7 +1183,10 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
             pageregInternal[reqPlaneIdx][candidateCacheIdx].ppn = ppn;
             pageregInternal[reqPlaneIdx][candidateCacheIdx].page = reqPageIdx;
             pageregInternal[reqPlaneIdx][candidateCacheIdx].dirty = true;
-            pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time = finishTick;             
+            pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time = finishTick;  
+            pageregInternal[reqPlaneIdx][candidateCacheIdx].usedSector = 
+              0x1 << (request.offset / 128); 
+            pageregInternal[reqPlaneIdx][candidateCacheIdx].reaccess = 1;                       
           }
 
         }
@@ -1214,7 +1232,10 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
           pageregInternal[reqPlaneIdx][candidateCacheIdx].ppn = ppn;
           pageregInternal[reqPlaneIdx][candidateCacheIdx].page = reqPageIdx;
           pageregInternal[reqPlaneIdx][candidateCacheIdx].dirty = true;
-          pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time = finishTick;                  
+          pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time = finishTick; 
+          pageregInternal[reqPlaneIdx][candidateCacheIdx].usedSector = 
+            0x1 << (request.offset / 128); 
+          pageregInternal[reqPlaneIdx][candidateCacheIdx].reaccess = 1;                           
         }          
       }
     }
