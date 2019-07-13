@@ -1106,7 +1106,7 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
           printf("flash_interface: Pagereg eviction @ ppn %u\n", pageregInternal[reqPlaneIdx][candidateCacheIdx].ppn);
           // if (converttoPackageIdx(evicted_channel, evicted_package) != converttoPackageIdx(channel, package))
           //   cout << "Jie_analysis: mismatch between evicted ppn and ppn" << endl; 
-          if ( palparam->pageRegNet == HB_NET ) availableTime += tBUSY;
+          if ( palparam->pageRegNet == HB_NET ) availableTime += 2 * tBUSY;
           if (availableTime < planeAvailableTime[converttoPlaneIdx(evicted_channel, evicted_package, evicted_die, evicted_plane)])
             availableTime = planeAvailableTime[converttoPlaneIdx(evicted_channel, evicted_package, evicted_die, evicted_plane)];           
           if ( palparam->pageRegNet == HB_NET_OLD )
