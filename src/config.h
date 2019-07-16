@@ -70,6 +70,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
         m_line_size = *m_simBase->m_knobs->KNOB_L3_LINE_SIZE;               \
         m_banks = *m_simBase->m_knobs->KNOB_L3_NUM_BANK;                    \
         m_latency = *m_simBase->m_knobs->KNOB_L3_LATENCY;                   \
+        m_wr_latency = *m_simBase->m_knobs->KNOB_L3_WR_LATENCY;             \
         m_ptx_sim = m_simBase->m_knobs->KNOB_CORE_TYPE->getValue() == "ptx" \
                         ? true                                              \
                         : false;                                            \
@@ -112,6 +113,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
         m_line_size = *m_simBase->m_knobs->KNOB_L3_LINE_SIZE;               \
         m_banks = *m_simBase->m_knobs->KNOB_L3_NUM_BANK;                    \
         m_latency = *m_simBase->m_knobs->KNOB_L3_LATENCY;                   \
+        m_wr_latency = *m_simBase->m_knobs->KNOB_L3_WR_LATENCY;             \
         m_ptx_sim =                                                         \
             m_simBase->m_knobs->KNOB_MEDIUM_CORE_TYPE->getValue() == "ptx"  \
                 ? true                                                      \
@@ -155,6 +157,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
         m_line_size = *m_simBase->m_knobs->KNOB_L3_LINE_SIZE;               \
         m_banks = *m_simBase->m_knobs->KNOB_L3_NUM_BANK;                    \
         m_latency = *m_simBase->m_knobs->KNOB_L3_LATENCY;                   \
+        m_wr_latency = *m_simBase->m_knobs->KNOB_L3_WR_LATENCY;             \
         m_ptx_sim =                                                         \
             m_simBase->m_knobs->KNOB_LARGE_CORE_TYPE->getValue() == "ptx"   \
                 ? true                                                      \

@@ -337,6 +337,7 @@ void dcu_c::init(int next_id, int prev_id, bool done, bool coupled_up,
   m_done = done;
   m_disable = disable;
   m_has_router = has_router;
+  m_cache_available = 0;
 
   if (!m_disable) {
     if (m_level == MEM_L3) {
@@ -658,7 +659,25 @@ bool dcu_c::fill(mem_req_s *req) {
   if (m_fill_queue->push(req)) {
     req->m_queue = m_fill_queue;
     req->m_state = MEM_FILL_NEW;
-    req->m_rdy_cycle = m_cycle + 1;
+    // if (m_level == MEM_L3)
+    //   req->m_rdy_cycle = m_cycle + m_wr_latency;
+    // else 
+    //   req->m_rdy_cycle = m_cycle + 1;
+    
+    //req->m_rdy_cycle = m_cycle + 1;
+    
+    if (m_level == MEM_L3){
+      if (m_cache_available > m_cycle){
+        m_cache_available += m_wr_latency / m_banks;
+        req->m_rdy_cycle = m_cache_available;
+      }
+      else {
+        m_cache_available = m_cycle + m_wr_latency / m_banks;
+        req->m_rdy_cycle = m_cache_available;        
+      }
+    }
+    else req->m_rdy_cycle = m_cycle + m_latency / m_banks;
+
     DEBUG_CORE(req->m_core_id, "L%d[%d] (->fill_queue) req:%d type:%s\n",
                m_level, m_id, req->m_id,
                mem_req_c::mem_req_type_name[req->m_type]);
@@ -685,7 +704,28 @@ bool dcu_c::fill(mem_req_s *req) {
 bool dcu_c::insert(mem_req_s *req) {
   if (m_in_queue->push(req)) {
     req->m_queue = m_in_queue;
+    // if (m_level == MEM_L3 || req->m_dirty)
+    //   req->m_rdy_cycle = m_cycle + m_wr_latency;
+    // else
+    //   req->m_rdy_cycle = m_cycle + m_latency;
+
     req->m_rdy_cycle = m_cycle + m_latency;
+
+    // if (m_level == MEM_L3){
+    //   int tmp_latency;
+    //   if (req->m_dirty) tmp_latency  = m_wr_latency;
+    //   tmp_latency = m_latency; 
+    //   if (m_cache_available > m_cycle){
+    //     m_cache_available += tmp_latency / m_banks;
+    //     req->m_rdy_cycle = m_cache_available;
+    //   }
+    //   else {
+    //     m_cache_available = m_cycle + tmp_latency / m_banks;
+    //     req->m_rdy_cycle = m_cache_available;        
+    //   }
+    // }
+    // else req->m_rdy_cycle = m_cycle + m_latency;    
+    
     DEBUG_CORE(req->m_core_id, "L%d[%d] (->in_queue) req:%d type:%s\n", m_level,
                m_id, req->m_id, mem_req_c::mem_req_type_name[req->m_type]);
     return true;

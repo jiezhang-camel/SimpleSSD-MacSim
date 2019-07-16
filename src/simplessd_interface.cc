@@ -867,7 +867,7 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
   uint32_t block;
   uint32_t page;
   uint32_t destPlane = (uint32_t)-1;
-  SimpleSSD::Logger::info("Request %d arrived at %d cycle",
+  SimpleSSD::Logger::info("Request %lu arrived at %lu cycle",
                         request.reqID, m_cycle); 
   availableTime = static_cast<unsigned long long>((double)availableTime * (double)1000 / (double)clock_freq);                                           
   pHIL->collectPPN(mem_req->m_appl_id, request, ppn, channel, package,  
@@ -959,8 +959,12 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
       else { // write operation
         pageregInternal[reqPlaneIdx][candidateCacheIdx].dirty = true;
         pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time = finishTick;
-        pageregInternal[reqPlaneIdx][candidateCacheIdx].usedSector |= 
-          0x1 << (request.offset / 128);
+        for (int index = 0; index < mem_req->m_size / 128; index++){
+          if (request.offset + index * 128 < logicalPageSize){
+            pageregInternal[reqPlaneIdx][candidateCacheIdx].usedSector |= 
+              0x1 << (request.offset / 128 + index);
+          }
+        }
         pageregInternal[reqPlaneIdx][candidateCacheIdx].reaccess++;          
       }
       //printf("Janalysis: flash latency %lu\n",0);
@@ -1072,11 +1076,17 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
           //Jie: analysis
           // cout << "Jie_analysis: new channel " << channel << " package " << package << " die " << die << " plane " << plane << " block " << block << " page " << page << endl;
           // if (prev_plane != converttoPlaneIdx(channel, package, die, plane)) 
-          //   cout << "Jie_analysis: incorrect page allocation in FTL" << endl;       
+          //   cout << "Jie_analysis: incorrect page allocation in FTL" << endl;  
+          int usedSectorNum = 0;
+          for (int index = 0; index < logicalPageSize/128; index++){
+            if (pageregInternal[reqPlaneIdx][candidateCacheIdx].usedSector & (0x1 << index) )
+              usedSectorNum++;
+          }     
           cout << "Jie_analysis: evicted pages lpn " <<
                           pageregInternal[reqPlaneIdx][candidateCacheIdx].page <<
                           " usedSector " << bitset<sizeof(int)*8>(
                           pageregInternal[reqPlaneIdx][candidateCacheIdx].usedSector) <<
+                          " usedSectorNum " << usedSectorNum <<
                           " reaccess " <<
                           pageregInternal[reqPlaneIdx][candidateCacheIdx].reaccess << endl;
               
@@ -1165,8 +1175,12 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
             pageregInternal[reqPlaneIdx][candidateCacheIdx].page = reqPageIdx;
             pageregInternal[reqPlaneIdx][candidateCacheIdx].dirty = true;
             pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time = finishTick;
-            pageregInternal[reqPlaneIdx][candidateCacheIdx].usedSector = 
-              0x1 << (request.offset / 128); 
+            for (int index = 0; index < mem_req->m_size / 128; index++){
+              if (request.offset + index * 128 < logicalPageSize){
+                pageregInternal[reqPlaneIdx][candidateCacheIdx].usedSector |= 
+                  0x1 << (request.offset / 128 + index);
+              }
+            }             
             pageregInternal[reqPlaneIdx][candidateCacheIdx].reaccess = 1;
           }
           else {
@@ -1184,8 +1198,12 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
             pageregInternal[reqPlaneIdx][candidateCacheIdx].page = reqPageIdx;
             pageregInternal[reqPlaneIdx][candidateCacheIdx].dirty = true;
             pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time = finishTick;  
-            pageregInternal[reqPlaneIdx][candidateCacheIdx].usedSector = 
-              0x1 << (request.offset / 128); 
+            for (int index = 0; index < mem_req->m_size / 128; index++){
+              if (request.offset + index * 128 < logicalPageSize){
+                pageregInternal[reqPlaneIdx][candidateCacheIdx].usedSector |= 
+                  0x1 << (request.offset / 128 + index);
+              }
+            } 
             pageregInternal[reqPlaneIdx][candidateCacheIdx].reaccess = 1;                       
           }
 
@@ -1234,13 +1252,19 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
           pageregInternal[reqPlaneIdx][candidateCacheIdx].dirty = true;
           pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time = finishTick; 
           pageregInternal[reqPlaneIdx][candidateCacheIdx].usedSector = 
-            0x1 << (request.offset / 128); 
+            0x1 << (request.offset / 128);          
+          for (int index = 1; index < mem_req->m_size / 128; index++){
+            if (request.offset + index * 128 < logicalPageSize){
+              pageregInternal[reqPlaneIdx][candidateCacheIdx].usedSector |= 
+                0x1 << (request.offset / 128 + index);
+            }
+          }           
           pageregInternal[reqPlaneIdx][candidateCacheIdx].reaccess = 1;                           
         }          
       }
     }
   }
-  SimpleSSD::Logger::info("Request finished at %d cycle, delay %d cycle", 
+  SimpleSSD::Logger::info("Request finished at %lu cycle, delay %lu cycle", 
                                   finishTick, finishTick - m_cycle);                               
   while (1){
     auto iter = m_output_buffer->find(finishTick);

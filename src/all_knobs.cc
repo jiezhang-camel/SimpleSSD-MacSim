@@ -322,6 +322,7 @@ all_knobs_c::all_knobs_c() {
 	KNOB_L3_LINE_SIZE = new KnobTemplate< int > ("l3_line_size", 64);
 	KNOB_L3_NUM_BANK = new KnobTemplate< int > ("l3_num_bank", 16);
 	KNOB_L3_LATENCY = new KnobTemplate< int > ("l3_latency", 25);
+	KNOB_L3_WR_LATENCY = new KnobTemplate< int > ("l3_wr_latency", 25);
 	KNOB_DCACHE_INFINITE_PORT = new KnobTemplate< bool > ("dcache_infinite_port", false);
 	KNOB_SIMPLESSD_CONFIG = new KnobTemplate< string > ("simplessd_config", "src/simplessd/config/intel750_400gb.cfg");
 	KNOB_DRAM_BUFFER_SIZE = new KnobTemplate< int > ("dram_buffer_size", 128);
@@ -853,6 +854,7 @@ all_knobs_c::~all_knobs_c() {
 	delete KNOB_L3_LINE_SIZE;
 	delete KNOB_L3_NUM_BANK;
 	delete KNOB_L3_LATENCY;
+	delete KNOB_L3_WR_LATENCY;
 	delete KNOB_DCACHE_INFINITE_PORT;
 	delete KNOB_SIMPLESSD_CONFIG;
 	delete KNOB_DRAM_BUFFER_SIZE;
@@ -1393,6 +1395,7 @@ void all_knobs_c::registerKnobs(KnobsContainer *container) {
 	container->insertKnob( KNOB_L3_LINE_SIZE );
 	container->insertKnob( KNOB_L3_NUM_BANK );
 	container->insertKnob( KNOB_L3_LATENCY );
+	container->insertKnob( KNOB_L3_WR_LATENCY );
 	container->insertKnob( KNOB_DCACHE_INFINITE_PORT );
 	container->insertKnob( KNOB_SIMPLESSD_CONFIG );
 	container->insertKnob( KNOB_DRAM_BUFFER_SIZE );

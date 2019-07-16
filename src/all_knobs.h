@@ -346,6 +346,7 @@ class all_knobs_c {
 		KnobTemplate< int >* KNOB_L3_LINE_SIZE;
 		KnobTemplate< int >* KNOB_L3_NUM_BANK;
 		KnobTemplate< int >* KNOB_L3_LATENCY;
+		KnobTemplate< int >* KNOB_L3_WR_LATENCY;
 		KnobTemplate< bool >* KNOB_DCACHE_INFINITE_PORT;
 		KnobTemplate< string >* KNOB_SIMPLESSD_CONFIG;
 		KnobTemplate< int >* KNOB_DRAM_BUFFER_SIZE;

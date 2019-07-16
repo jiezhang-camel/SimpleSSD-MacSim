@@ -295,6 +295,8 @@ class dcu_c {
   int m_line_size;       /**< cache line size */
   int m_banks;           /**< number of cache banks */
   int m_latency;         /**< cache access latency */
+  int m_wr_latency;      /**< cache write access latency, L3 only */
+  Counter m_cache_available; /**< cache available time, L3 only */
   bool m_ptx_sim;        /**< gpu cache */
   queue_c *m_in_queue;   /**< input queue */
   queue_c *m_wb_queue;   /**< write-back queue */
