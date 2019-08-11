@@ -25,6 +25,7 @@ dram_c *simplessd_interface(macsim_c *simBase) {
 
 simplessd_interface_c::simplessd_interface_c(macsim_c *simBase)
     : dram_c(simBase) {
+  m_cycle = 0;
   SimpleSSD::Logger::initLogSystem(std::cout, std::cerr, [this]() -> uint64_t {
     return m_cycle * 1000 / clock_freq;
   });
@@ -130,7 +131,7 @@ void simplessd_interface_c::receive(void) {
     if (finishTick <= static_cast<unsigned long long>(m_cycle * 1000 / clock_freq))
       insert_new_req(req);
     else{
-      finishTick = finishTick / 1000 * clock_freq;
+      finishTick = finishTick * clock_freq / 1000;
       while (1){
         auto iter = m_input_buffer->find(finishTick);
         if (iter != m_input_buffer->end()) finishTick++;
@@ -167,7 +168,7 @@ void simplessd_interface_c::receive(void) {
       m_input_buffer->erase(I);
     }
     else{
-        finishTick = finishTick / 1000 * clock_freq;
+        finishTick = finishTick * clock_freq / 1000;
         while (1){
           auto iter = m_input_buffer->find(finishTick);
           if (iter != m_input_buffer->end()) finishTick++;
@@ -202,18 +203,22 @@ bool simplessd_interface_c::insert_new_req(mem_req_s *mem_req) {
   else
     pHIL->read(request, finishTick);
 
-  finishTick = finishTick / 1000 * clock_freq;
+  finishTick = finishTick * clock_freq / 1000 ;
   SimpleSSD::Logger::info("Request finished at %d cycle, delay %d cycle", 
                                     finishTick, finishTick - m_cycle);
-  while (1){
-    auto iter = m_output_buffer->find(finishTick);
-    if (iter != m_output_buffer->end()) finishTick++;
-    else break;
+  if (mem_req->m_type == MRT_WB){
+    MEMORY->free_req(mem_req->m_core_id, mem_req);     
   }
+  else{
+    while (1){
+      auto iter = m_output_buffer->find(finishTick);
+      if (iter != m_output_buffer->end()) finishTick++;
+      else break;
+    }
 
-  m_output_buffer->insert(pair<unsigned long long, mem_req_s *>(
-      static_cast<unsigned long long>(finishTick), mem_req));
-
+    m_output_buffer->insert(pair<unsigned long long, mem_req_s *>(
+        static_cast<unsigned long long>(finishTick), mem_req));
+  }
   return true;
 }
 
