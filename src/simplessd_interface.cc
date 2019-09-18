@@ -122,6 +122,115 @@ void flash_interface_c::init(int id) {
     IOportTimeSlot = new set<uint64_t>[palparam->channel * palparam->package];
 }
 
+void flash_interface_c::EarlyEviction(int reqPlaneIdx){
+  for (unsigned i = 0; i < totalPlane* palparam->pageReg 
+                                  / palparam->pageRegAssoc; i++){
+    //if (i != reqPlaneIdx) continue;
+    int lru_idx = (uint32_t)-1;
+    uint64_t minTime = (uint64_t)-1;                                
+    for (unsigned j = palparam->readReg; j < palparam->pageRegAssoc; j++) {
+      if (pageregInternal[i][j].valid == false){
+        // lru_idx = (uint32_t)-1;
+        // break;
+      } 
+      else{
+        if (minTime == (uint64_t)-1){
+          minTime = pageregInternal[i][j].available_time;
+          lru_idx = j;
+        }
+        else {
+          if (minTime > pageregInternal[i][j].available_time){
+            minTime = pageregInternal[i][j].available_time;
+            lru_idx = j;
+          }
+        }        
+      }      
+    }
+    if (lru_idx != (uint32_t)-1){
+      int usedSectorNum = 0;
+      for (int index = 0; index < logicalPageSize/128; index++){
+        if (pageregInternal[i][lru_idx].usedSector & (0x1 << index) )
+          usedSectorNum++;
+      }         
+      cout << "Early eviction LPN " <<  pageregInternal[i][lru_idx].page << 
+                          " @ Plane " << i << " index " << lru_idx <<
+                          " usedSector " << bitset<sizeof(int)*8>(
+                          pageregInternal[i][lru_idx].usedSector) <<
+                          " usedSectorNum " << usedSectorNum <<
+                          " reaccesses " << pageregInternal[i][lru_idx].reaccess<< endl;  
+      pageregInternal[i][lru_idx].valid = false;
+      pageregInternal[i][lru_idx].reaccess = 0; 
+      pageregInternal[i][lru_idx].usedSector = 0;                          
+    }     
+  }
+}  
+
+void flash_interface_c::EarlyEviction() {
+  for (unsigned i = 0; i < totalPlane* palparam->pageReg 
+                                  / palparam->pageRegAssoc; i++){
+    int lru_idx = (uint32_t)-1;
+    uint64_t minTime = (uint64_t)-1;                                
+    for (unsigned j = palparam->readReg; j < palparam->pageRegAssoc; j++) {
+      if (pageregInternal[i][j].valid == false){
+        //lru_idx = (uint32_t)-1;
+        //break;
+      } 
+      else{
+
+        // int usedSectorNum = 0;
+        // for (int index = 0; index < logicalPageSize/128; index++){
+        //   if (pageregInternal[i][j].usedSector & (0x1 << index) )
+        //     usedSectorNum++;
+        // }
+        // if (usedSectorNum == 32){
+        //   pageregInternal[i][j].valid = false;
+        //   pageregInternal[i][j].reaccess = 0;
+        //   printf("Early eviction @ Plane %d index %d\n", i, j);
+        // }       
+
+        if (minTime == (uint64_t)-1){
+          minTime = pageregInternal[i][j].available_time;
+          lru_idx = j;
+        }
+        else {
+          if (minTime > pageregInternal[i][j].available_time){
+            minTime = pageregInternal[i][j].available_time;
+            lru_idx = j;
+          }
+        }
+      }
+    }  
+    int usedSectorNum = 0;
+    for (int index = 0; index < logicalPageSize/128; index++){
+      if (pageregInternal[i][lru_idx].usedSector & (0x1 << index) )
+        usedSectorNum++;
+    }
+    //Option 1
+    // if (usedSectorNum == 32){
+    //   pageregInternal[i][lru_idx].valid = false;
+    //   pageregInternal[i][lru_idx].reaccess = 0;
+    //   printf("Early eviction @ Plane %d index %d\n", i, lru_idx);
+    // }  
+    //Option 2
+    if (lru_idx != (uint32_t)-1){  
+      cout << "Early eviction @ Plane " << i << " index " << lru_idx <<
+                          " usedSector " << bitset<sizeof(int)*8>(
+                          pageregInternal[i][lru_idx].usedSector) <<
+                          " usedSectorNum " << usedSectorNum <<
+                          " reaccesses " << pageregInternal[i][lru_idx].reaccess<< endl;  
+      pageregInternal[i][lru_idx].valid = false;
+      pageregInternal[i][lru_idx].reaccess = 0;  
+      pageregInternal[i][lru_idx].usedSector = 0;                           
+    }   
+    //Option 3
+    // if (usedSectorNum >= 16 || pageregInternal[i][lru_idx].reaccess >= 16){
+    //   pageregInternal[i][lru_idx].valid = false;
+    //   pageregInternal[i][lru_idx].reaccess = 0;
+    //   printf("Early eviction @ Plane %d index %d\n", i, lru_idx);
+    // }                                         
+  }
+}
+
 bool flash_interface_c::FindCandidateSlot(struct _pageregInternal *pageregInternal,
                     int &cache_idx, int &data_idx, uint64_t search_page, bool isWrite) {
   int cache_invalid_idx = (uint32_t)-1;
@@ -851,6 +960,14 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
     cleanIOPort();
   }                                             
   SimpleSSD::ICL::Request request;
+  if (mem_req->m_dirty){
+    mem_req->m_size = 128;
+    write_counter++;
+  } 
+  if (write_counter == 500){
+    write_counter = 0;
+    //EarlyEviction();
+  }
   request.reqID = mem_req->m_id;
   request.offset = mem_req->m_addr % logicalPageSize;
   request.length = mem_req->m_size;
@@ -887,7 +1004,7 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
     printf("Jie: read lpn %lu ppn %u channel %u package %u die %u plane %u \
               block %u page %u\n", request.range.slpn, ppn, channel, package,
             die, plane, block, page);
-  
+
   // if (mem_req->m_addr >= (unsigned long)UINT_MAX) 
   //                               printf("Jie: APP 1 app_id %d core_id %d lpn %lu\n", 
   //                                       mem_req->m_appl_id, mem_req->m_core_id,
@@ -907,7 +1024,7 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
                         reqPlaneIdx, candidateCacheIdx,
                         candidateDataIdx, reqPageIdx, mem_req->m_dirty):
             FindCandidateSlot(pageregInternal[reqPlaneIdx], candidateCacheIdx,
-                        candidateDataIdx, reqPageIdx, mem_req->m_dirty);
+                        candidateDataIdx, reqPageIdx, mem_req->m_dirty);                      
   if (isHit){      
       if (mem_req->m_dirty == 0)
         printf("flash_interface: Pagereg read hit @ index %d\n", candidateDataIdx);
@@ -1084,6 +1201,7 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
           }     
           cout << "Jie_analysis: evicted pages lpn " <<
                           pageregInternal[reqPlaneIdx][candidateCacheIdx].page <<
+                          " @ plane " << reqPlaneIdx <<
                           " usedSector " << bitset<sizeof(int)*8>(
                           pageregInternal[reqPlaneIdx][candidateCacheIdx].usedSector) <<
                           " usedSectorNum " << usedSectorNum <<
@@ -1206,7 +1324,11 @@ bool flash_interface_c::insert_new_req(unsigned long long &finishTime,
             } 
             pageregInternal[reqPlaneIdx][candidateCacheIdx].reaccess = 1;                       
           }
-
+          if (!isHit && mem_req->m_dirty != 0 && pageregInternal[reqPlaneIdx][candidateCacheIdx].valid){
+            for (int evictNum=0; evictNum < 1; evictNum++)
+              EarlyEviction(reqPlaneIdx);
+            //EarlyEviction();
+          }  
         }
         else {
           if (availableTime < pageregInternal[reqPlaneIdx][candidateCacheIdx].available_time)

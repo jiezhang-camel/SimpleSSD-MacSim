@@ -70,7 +70,9 @@ class flash_interface_c : public dram_c {
   bool FindCandidateSlot(struct _pageregInternal *pageregInternal, 
       int &cache_idx, int &data_idx, uint64_t search_page, bool isWrite);
   bool FindCandidateSlot_HBNET(int readPlaneIdx, int reqPlaneIdx, 
-      int &cache_idx, int &data_idx, uint64_t search_page, bool isWrite);    
+      int &cache_idx, int &data_idx, uint64_t search_page, bool isWrite);  
+  void EarlyEviction();  
+  void EarlyEviction(int reqPlaneIdx);  
   uint64_t *planeAvailableTime, *flashportAvailableTime; 
   typedef struct _TimeSlot{
     uint64_t StartTick;
@@ -85,6 +87,7 @@ class flash_interface_c : public dram_c {
     uint32_t die); 
   uint32_t converttoPackageIdx(uint32_t channel, uint32_t package); 
   uint32_t cleanup_counter; 
+  uint32_t write_counter;
   void cleanIOPort();
 
  private:

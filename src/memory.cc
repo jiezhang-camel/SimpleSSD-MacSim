@@ -716,11 +716,11 @@ bool dcu_c::insert(mem_req_s *req) {
     //   if (req->m_dirty) tmp_latency  = m_wr_latency;
     //   tmp_latency = m_latency; 
     //   if (m_cache_available > m_cycle){
-    //     m_cache_available += tmp_latency / m_banks;
+    //     m_cache_available += tmp_latency;
     //     req->m_rdy_cycle = m_cache_available;
     //   }
     //   else {
-    //     m_cache_available = m_cycle + tmp_latency / m_banks;
+    //     m_cache_available = m_cycle + tmp_latency;
     //     req->m_rdy_cycle = m_cache_available;        
     //   }
     // }
